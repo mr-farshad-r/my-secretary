@@ -9,7 +9,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   macos-apple-silicon:
@@ -73,3 +73,36 @@ jobs:
             release/*.exe
             release/*.exe.blockmap
           if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [macos-apple-silicon, windows-x64]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Verify tag matches package version
+        shell: bash
+        run: |
+          package_version="$(node -p "require('./package.json').version")"
+          if [ "v${package_version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package version v${package_version}."
+            exit 1
+          fi
+      - name: Download desktop builds
+        uses: actions/download-artifact@v4
+        with:
+          pattern: my-secretary-*
+          path: release-assets
+          merge-multiple: true
+      - name: Create public release with changelog
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" release-assets/* \
+            --verify-tag \
+            --title "My Secretary ${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --latest
