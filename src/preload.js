@@ -1,6 +1,10 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
+  app: {
+    checkForUpdate: () => ipcRenderer.invoke('app:checkForUpdate'),
+    openRelease: (releaseUrl) => ipcRenderer.invoke('app:openRelease', releaseUrl),
+  },
   tasks: {
     create: (task) => ipcRenderer.invoke('tasks:create', task),
     getAll: () => ipcRenderer.invoke('tasks:getAll'),

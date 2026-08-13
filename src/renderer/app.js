@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderBoard();
   setupEventListeners();
   setupDragAndDrop();
+  checkForUpdates();
 });
 
 // ─── Data ───────────────────────────────────────────
@@ -159,6 +160,9 @@ function setupDragAndDrop() {
 
 // ─── Modal ──────────────────────────────────────────
 function setupEventListeners() {
+  document.getElementById('dismissUpdateBtn').addEventListener('click', () => {
+    document.getElementById('updateBanner').classList.add('hidden');
+  });
   document.getElementById('addTaskBtn').addEventListener('click', () => openModal());
   document.getElementById('archiveDoneBtn').addEventListener('click', archiveDoneTasks);
   document.getElementById('viewArchiveBtn').addEventListener('click', openArchive);
@@ -187,6 +191,29 @@ function setupEventListeners() {
   document.getElementById('taskShamsi').addEventListener('blur', formatShamsiInput);
 
   setupMarkdownToolbar();
+}
+
+async function checkForUpdates() {
+  try {
+    const update = await window.api.app.checkForUpdate();
+    if (!isNewerVersion(update.latestVersion, update.currentVersion)) return;
+    document.getElementById('updateMessage').textContent = `Version ${update.latestVersion} is ready (you have ${update.currentVersion}).`;
+    document.getElementById('updateNowBtn').onclick = () => window.api.app.openRelease(update.releaseUrl);
+    document.getElementById('updateBanner').classList.remove('hidden');
+  } catch (error) {
+    console.info('Update check unavailable:', error.message);
+  }
+}
+
+function isNewerVersion(candidate, current) {
+  const parse = value => String(value).split('.').map(part => Number.parseInt(part, 10) || 0);
+  const latest = parse(candidate);
+  const installed = parse(current);
+  for (let index = 0; index < Math.max(latest.length, installed.length); index++) {
+    if ((latest[index] || 0) > (installed[index] || 0)) return true;
+    if ((latest[index] || 0) < (installed[index] || 0)) return false;
+  }
+  return false;
 }
 
 async function openModal(task = null, presetStatus = 'todo') {
