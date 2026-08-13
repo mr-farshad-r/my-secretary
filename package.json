@@ -1,0 +1,58 @@
+{
+  "name": "my-secretary",
+  "version": "1.1.0",
+  "description": "Self-hosted task manager with Kanban UI",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "dist": "electron-builder --mac dmg",
+    "dist:arm64": "electron-builder --mac dmg --arm64",
+    "dist:x64": "electron-builder --mac dmg --x64",
+    "dist:win": "electron-builder --win nsis --x64"
+  },
+  "build": {
+    "appId": "com.snappay.mysecretary",
+    "productName": "My Secretary",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "src/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dmg"],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "win": {
+      "target": ["nsis"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "dmg": {
+      "title": "My Secretary",
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
+    }
+  },
+  "author": "Snapp Pay Dev",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "jalaali-js": "^1.2.8",
+    "marked": "^14.1.0"
+  }
+}
