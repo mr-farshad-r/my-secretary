@@ -1,6 +1,6 @@
 {
   "name": "my-secretary",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Self-hosted task manager with Kanban UI",
   "main": "src/main.js",
   "scripts": {
@@ -26,11 +26,13 @@
     "mac": {
       "category": "public.app-category.productivity",
       "target": ["dmg"],
+      "icon": "build/icon.icns",
       "hardenedRuntime": false,
       "gatekeeperAssess": false
     },
     "win": {
-      "target": ["nsis"]
+      "target": ["nsis"],
+      "icon": "build/icon.png"
     },
     "nsis": {
       "oneClick": false,
