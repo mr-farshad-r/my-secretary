@@ -2,6 +2,16 @@
 
 My Secretary is a lightweight desktop task manager with a Kanban-style board. It runs locally on macOS and Windows and stores your tasks on your own computer.
 
+## Screenshots
+
+### Kanban board
+
+![My Secretary Kanban board](docs/screenshots/board.png)
+
+### Task editor
+
+![My Secretary task editor with Shamsi deadline and Markdown tools](docs/screenshots/task-editor.png)
+
 ## Features
 
 - Kanban board with **Todo**, **In Progress**, and **Done** columns
