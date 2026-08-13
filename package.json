@@ -7,10 +7,10 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
-    "dist": "electron-builder --mac dmg",
-    "dist:arm64": "electron-builder --mac dmg --arm64",
-    "dist:x64": "electron-builder --mac dmg --x64",
-    "dist:win": "electron-builder --win nsis --x64"
+    "dist": "electron-builder --mac dmg --publish never",
+    "dist:arm64": "electron-builder --mac dmg --arm64 --publish never",
+    "dist:x64": "electron-builder --mac dmg --x64 --publish never",
+    "dist:win": "electron-builder --win nsis --x64 --publish never"
   },
   "build": {
     "appId": "com.snappay.mysecretary",
