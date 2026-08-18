@@ -202,6 +202,8 @@ body:has(.update-banner:not(.hidden)) #board { height: calc(100vh - 125px); padd
 }
 .task-card-date .date-chip:first-child { color: var(--text); }
 .secondary-date { opacity: .72; }
+.remaining-days { color: var(--success); font-weight: 600; }
+.remaining-days.overdue { color: var(--danger); }
 
 .task-card-badges {
   display: flex;
@@ -400,6 +402,16 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
   flex: 1;
 }
 .custom-field-row .field-label-input { max-width: 35%; }
+.custom-field-row .saved-link-value {
+  color: var(--primary);
+  text-decoration: underline;
+  cursor: default;
+}
+.field-link-actions {
+  display: flex;
+  gap: 4px;
+  flex: 0 0 auto;
+}
 
 /* ─── Modal Footer ────────────────────────────────── */
 .modal-footer {

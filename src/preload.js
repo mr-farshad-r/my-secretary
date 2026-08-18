@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('api', {
   app: {
     checkForUpdate: () => ipcRenderer.invoke('app:checkForUpdate'),
     openRelease: (releaseUrl) => ipcRenderer.invoke('app:openRelease', releaseUrl),
+    openExternal: (externalUrl) => ipcRenderer.invoke('app:openExternal', externalUrl),
   },
   tasks: {
     create: (task) => ipcRenderer.invoke('tasks:create', task),

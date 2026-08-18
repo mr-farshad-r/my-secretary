@@ -66,6 +66,13 @@ app.whenReady().then(() => {
     }
     return shell.openExternal(url.toString());
   });
+  ipcMain.handle('app:openExternal', (_e, externalUrl) => {
+    const url = new URL(externalUrl);
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      throw new Error('Only HTTP and HTTPS links can be opened');
+    }
+    return shell.openExternal(url.toString());
+  });
 
   createWindow();
 

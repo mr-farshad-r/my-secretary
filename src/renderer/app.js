@@ -46,6 +46,29 @@ function todayMiladi() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
+function remainingDaysLabel(miladiDate) {
+  if (!miladiDate || !/^\d{4}-\d{2}-\d{2}$/.test(miladiDate)) return '';
+  const [year, month, day] = miladiDate.split('-').map(Number);
+  const deadline = Date.UTC(year, month - 1, day);
+  const now = new Date();
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((deadline - today) / 86400000);
+
+  if (days === 0) return 'Today';
+  if (days === 1) return '1 day left';
+  if (days > 1) return `${days} days left`;
+  if (days === -1) return '1 day overdue';
+  return `${Math.abs(days)} days overdue`;
+}
+
+function isWebLink(value) {
+  try {
+    return ['http:', 'https:'].includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+}
+
 // ─── Init ───────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   await loadTasks();
@@ -104,7 +127,10 @@ function createTaskCard(task) {
   card.dataset.id = task.id;
 
   const dateChips = [];
-  if (task.shamsi_date) dateChips.push(`<span class="date-chip" title="Shamsi deadline">Deadline ${escapeHtml(task.shamsi_date)}</span>`);
+  if (task.shamsi_date) {
+    const remaining = remainingDaysLabel(task.miladi_date || shamsiToMiladi(task.shamsi_date));
+    dateChips.push(`<span class="date-chip" title="Shamsi deadline">Deadline ${escapeHtml(task.shamsi_date)}${remaining ? ` <span class="remaining-days ${remaining.includes('overdue') ? 'overdue' : ''}">· ${escapeHtml(remaining)}</span>` : ''}</span>`);
+  }
   if (task.miladi_date) dateChips.push(`<span class="date-chip secondary-date" title="Gregorian deadline">${escapeHtml(task.miladi_date)}</span>`);
 
   const fieldBadges = [];
@@ -254,7 +280,7 @@ async function openModal(task = null, presetStatus = 'todo') {
   container.innerHTML = '';
   if (task?.custom_fields) {
     for (const [key, val] of Object.entries(task.custom_fields)) {
-      addCustomField(key, val);
+      addCustomField(key, val, true);
     }
   }
 
@@ -441,15 +467,38 @@ async function handleDelete() {
 }
 
 // ─── Custom Fields ──────────────────────────────────
-function addCustomField(key = '', val = '') {
+function addCustomField(key = '', val = '', saved = false) {
   const container = document.getElementById('customFieldsContainer');
   const row = document.createElement('div');
   row.className = 'custom-field-row';
   row.innerHTML = `
     <input type="text" class="field-label-input" placeholder="Field name" value="${escapeHtml(key)}">
     <input type="text" class="field-value-input" placeholder="Value" value="${escapeHtml(val)}">
+    <div class="field-link-actions hidden">
+      <button type="button" class="btn btn-secondary btn-sm preview-link">Preview</button>
+      <button type="button" class="btn btn-ghost btn-sm edit-link">Edit</button>
+    </div>
     <button type="button" class="btn-icon remove-field">✕</button>
   `;
+  const valueInput = row.querySelector('.field-value-input');
+  const linkActions = row.querySelector('.field-link-actions');
+  if (saved && isWebLink(val)) {
+    valueInput.classList.add('saved-link-value');
+    valueInput.readOnly = true;
+    linkActions.classList.remove('hidden');
+  }
+  row.querySelector('.preview-link').addEventListener('click', async () => {
+    if (isWebLink(valueInput.value.trim())) {
+      await window.api.app.openExternal(valueInput.value.trim());
+    }
+  });
+  row.querySelector('.edit-link').addEventListener('click', () => {
+    valueInput.readOnly = false;
+    valueInput.classList.remove('saved-link-value');
+    linkActions.classList.add('hidden');
+    valueInput.focus();
+    valueInput.select();
+  });
   row.querySelector('.remove-field').addEventListener('click', () => {
     row.remove();
     scheduleDraftSave();
