@@ -14,7 +14,7 @@
     <div class="header-right">
       <button id="settingsBtn" class="btn btn-ghost" aria-label="Open settings">Settings</button>
       <button id="viewArchiveBtn" class="btn btn-ghost">Archive <span id="archiveCount" class="button-count">0</span></button>
-      <button id="addTaskBtn" class="btn btn-primary">+ New Task</button>
+      <button id="addTaskBtn" class="btn btn-primary" title="New task (Cmd/Ctrl+N)">+ New Task</button>
     </div>
   </header>
 
@@ -28,13 +28,13 @@
   </aside>
 
   <main id="board">
-    <div class="column" data-status="pending">
+    <div class="column" data-status="todo">
       <div class="column-header">
-        <h2>Pending</h2>
-        <span class="badge" id="count-pending">0</span>
+        <h2>TODO</h2>
+        <span class="badge" id="count-todo">0</span>
       </div>
-      <div class="task-list" data-status="pending"></div>
-      <button class="add-to-column" data-status="pending">+ Add</button>
+      <div class="task-list" data-status="todo"></div>
+      <button class="add-to-column" data-status="todo">+ Add</button>
     </div>
 
     <div class="column" data-status="wip">
@@ -76,9 +76,17 @@
           <div>
             <label>Status</label>
             <select id="taskStatus">
-              <option value="pending">PENDING</option>
               <option value="wip">WIP</option>
-              <option value="done">DONE</option>
+              <option value="pending">Pending</option>
+              <option value="canceled">Canceled</option>
+            </select>
+          </div>
+          <div>
+            <label>Priority</label>
+            <select id="taskPriority">
+              <option value="high">High</option>
+              <option value="medium" selected>Medium</option>
+              <option value="low">Low</option>
             </select>
           </div>
           <div>
@@ -132,7 +140,7 @@
           <button type="button" id="revertDraftBtn" class="btn btn-ghost hidden">Revert draft</button>
           <button type="button" id="saveDraftBtn" class="btn btn-secondary hidden">Save draft</button>
           <button type="button" id="cancelBtn" class="btn btn-ghost">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save changes</button>
+          <button type="submit" class="btn btn-primary" title="Save (Cmd/Ctrl+Enter)">Save changes</button>
         </div>
       </form>
     </div>
@@ -163,6 +171,12 @@
           <span><strong>Open at startup</strong><small>Start My Secretary when you log in to your computer.</small></span>
         </label>
         <p id="settingsStatus" class="settings-status" aria-live="polite"></p>
+        <div class="shortcut-help">
+          <strong>Keyboard shortcuts</strong>
+          <span><kbd>Cmd/Ctrl</kbd> + <kbd>N</kbd> New task</span>
+          <span><kbd>Cmd/Ctrl</kbd> + <kbd>Enter</kbd> Save task</span>
+          <span><kbd>Esc</kbd> Close dialog</span>
+        </div>
       </div>
     </section>
   </div>

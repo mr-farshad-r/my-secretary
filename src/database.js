@@ -31,6 +31,8 @@ function initDb() {
       title TEXT NOT NULL,
       description TEXT DEFAULT '',
       status TEXT NOT NULL DEFAULT 'pending',
+      column_status TEXT NOT NULL DEFAULT 'todo',
+      priority TEXT NOT NULL DEFAULT 'medium',
       shamsi_date TEXT,
       miladi_date TEXT,
       custom_fields TEXT DEFAULT '{}',
@@ -66,9 +68,19 @@ function initDb() {
     END;
   `);
 
-  // Migrate the original board values to the user-facing workflow names.
+  const taskColumns = db.prepare('PRAGMA table_info(tasks)').all().map(column => column.name);
+  if (!taskColumns.includes('column_status')) {
+    db.exec("ALTER TABLE tasks ADD COLUMN column_status TEXT NOT NULL DEFAULT 'todo'");
+    db.exec("UPDATE tasks SET column_status = CASE status WHEN 'wip' THEN 'wip' WHEN 'done' THEN 'done' WHEN 'archived' THEN 'archived' ELSE 'todo' END");
+  }
+  if (!taskColumns.includes('priority')) {
+    db.exec("ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'");
+  }
+
+  // Keep the task badge independent from its Kanban column.
   db.prepare("UPDATE tasks SET status = 'pending' WHERE status = 'todo'").run();
   db.prepare("UPDATE tasks SET status = 'wip' WHERE status = 'inprogress'").run();
+  db.prepare("UPDATE tasks SET status = 'pending' WHERE status NOT IN ('wip', 'pending', 'canceled')").run();
 
   return db;
 }
@@ -85,14 +97,16 @@ function createTask(task) {
   const shamsiDate = task.shamsi_date || null;
   const miladiDate = task.miladi_date || shamsiToMiladi(shamsiDate);
   const stmt = getDb().prepare(`
-    INSERT INTO tasks (id, title, description, status, shamsi_date, miladi_date, custom_fields, sort_order)
-    VALUES (@id, @title, @description, @status, @shamsi_date, @miladi_date, @custom_fields, @sort_order)
+    INSERT INTO tasks (id, title, description, status, column_status, priority, shamsi_date, miladi_date, custom_fields, sort_order)
+    VALUES (@id, @title, @description, @status, @column_status, @priority, @shamsi_date, @miladi_date, @custom_fields, @sort_order)
   `);
   stmt.run({
     id,
     title: task.title,
     description: task.description || '',
     status: task.status || 'pending',
+    column_status: task.column_status || 'todo',
+    priority: task.priority || 'medium',
     shamsi_date: shamsiDate,
     miladi_date: miladiDate,
     custom_fields: JSON.stringify(task.custom_fields || {}),
@@ -116,7 +130,7 @@ function getAllTasks() {
 function updateTask(id, updates) {
   const fields = [];
   const values = { id };
-  const allowed = ['title', 'description', 'status', 'shamsi_date', 'miladi_date', 'custom_fields', 'sort_order'];
+  const allowed = ['title', 'description', 'status', 'column_status', 'priority', 'shamsi_date', 'miladi_date', 'custom_fields', 'sort_order'];
 
   // If shamsi_date is being updated, recompute miladi_date automatically
   if (updates.shamsi_date !== undefined && updates.miladi_date === undefined) {
@@ -160,7 +174,7 @@ function deleteDraft(taskId) {
 }
 
 function archiveAllDone() {
-  const result = getDb().prepare("UPDATE tasks SET status = 'archived' WHERE status = 'done'").run();
+  const result = getDb().prepare("UPDATE tasks SET column_status = 'archived' WHERE column_status = 'done'").run();
   return result.changes;
 }
 

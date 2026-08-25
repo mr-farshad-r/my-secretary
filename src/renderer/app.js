@@ -5,15 +5,15 @@ let isPreviewMode = false;
 let editingBaseTask = null;
 let draftTimer = null;
 let draftDirty = false;
-let newTaskStatus = 'pending';
+let newTaskColumn = 'todo';
+let dragPlaceholder = null;
 
-const STATUS_COLUMNS = ['pending', 'wip', 'done'];
-const STATUS_LABELS = { pending: 'PENDING', wip: 'WIP', done: 'DONE' };
+const STATUS_COLUMNS = ['todo', 'wip', 'done'];
+const STATUS_LABELS = { pending: 'PENDING', wip: 'WIP', canceled: 'CANCELED' };
 
 function normalizeStatus(status) {
-  if (status === 'todo') return 'pending';
   if (status === 'inprogress') return 'wip';
-  return STATUS_COLUMNS.includes(status) ? status : 'pending';
+  return ['wip', 'pending', 'canceled'].includes(status) ? status : 'pending';
 }
 
 // ─── Shamsi ↔ Miladi conversion ──────────────────────
@@ -96,6 +96,8 @@ async function saveTask(data) {
       title: data.title,
       description: data.description,
       status: data.status,
+      column_status: data.column_status,
+      priority: data.priority,
       shamsi_date: data.shamsi_date,
       miladi_date: data.miladi_date,
       custom_fields: data.custom_fields,
@@ -105,6 +107,8 @@ async function saveTask(data) {
     title: data.title,
     description: data.description,
     status: data.status || 'pending',
+    column_status: data.column_status || 'todo',
+    priority: data.priority || 'medium',
     shamsi_date: data.shamsi_date,
     miladi_date: data.miladi_date,
     custom_fields: data.custom_fields,
@@ -117,14 +121,14 @@ function renderBoard() {
     const list = document.querySelector(`.task-list[data-status="${status}"]`);
     const count = document.getElementById(`count-${status}`);
     list.innerHTML = '';
-    const colTasks = tasks.filter(t => t.status === status);
+    const colTasks = tasks.filter(t => (t.column_status || 'todo') === status);
     count.textContent = colTasks.length;
 
     colTasks.forEach(task => {
       list.appendChild(createTaskCard(task));
     });
   }
-  const archived = tasks.filter(t => t.status === 'archived').length;
+  const archived = tasks.filter(t => t.column_status === 'archived').length;
   document.getElementById('archiveCount').textContent = archived;
 }
 
@@ -141,17 +145,14 @@ function createTaskCard(task) {
   }
   if (task.miladi_date) dateChips.push(`<span class="date-chip secondary-date" title="Gregorian deadline">${escapeHtml(task.miladi_date)}</span>`);
 
-  const fieldBadges = [];
-  if (task.custom_fields) {
-    for (const [key, val] of Object.entries(task.custom_fields)) {
-      if (val) fieldBadges.push(`<span class="field-badge">${escapeHtml(key)}: ${escapeHtml(String(val))}</span>`);
-    }
-  }
+  const customFieldCount = task.custom_fields
+    ? Object.values(task.custom_fields).filter(value => value !== null && value !== undefined && String(value).trim() !== '').length
+    : 0;
 
   card.innerHTML = `
-    <div class="task-card-heading"><div class="task-card-title">${escapeHtml(task.title)}</div><span class="status-chip status-${escapeHtml(task.status)}">${escapeHtml(STATUS_LABELS[task.status] || task.status)}</span></div>
+    <div class="task-card-heading"><div class="task-card-title">${escapeHtml(task.title)}</div><div class="task-card-chips"><span class="priority-chip priority-${escapeHtml(task.priority || 'medium')}">${escapeHtml((task.priority || 'medium').toUpperCase())}</span><span class="status-chip status-${escapeHtml(task.status)}">${escapeHtml(STATUS_LABELS[task.status] || task.status)}</span></div></div>
     ${dateChips.length ? `<div class="task-card-date">${dateChips.join('')}</div>` : ''}
-    ${fieldBadges.length ? `<div class="task-card-badges">${fieldBadges.join('')}</div>` : ''}
+    ${customFieldCount ? `<div class="task-card-badges"><span class="field-count-badge" title="${customFieldCount} custom ${customFieldCount === 1 ? 'field' : 'fields'}">${customFieldCount} custom ${customFieldCount === 1 ? 'field' : 'fields'}</span></div>` : ''}
   `;
 
   card.addEventListener('click', () => openModal(task));
@@ -164,14 +165,36 @@ function setupDragAndDrop() {
     list.addEventListener('dragover', (e) => {
       e.preventDefault();
       list.classList.add('drag-over');
+      if (!dragPlaceholder) {
+        dragPlaceholder = document.createElement('div');
+        dragPlaceholder.className = 'task-card-placeholder';
+        dragPlaceholder.setAttribute('aria-hidden', 'true');
+      }
+      const beforeCard = getDragAfterElement(list, e.clientY);
+      if (beforeCard) list.insertBefore(dragPlaceholder, beforeCard);
+      else list.appendChild(dragPlaceholder);
     });
-    list.addEventListener('dragleave', () => list.classList.remove('drag-over'));
+    list.addEventListener('dragleave', (e) => {
+      if (list.contains(e.relatedTarget)) return;
+      list.classList.remove('drag-over');
+      if (dragPlaceholder?.parentElement === list) dragPlaceholder.remove();
+    });
     list.addEventListener('drop', async (e) => {
       e.preventDefault();
       list.classList.remove('drag-over');
       const taskId = e.dataTransfer.getData('text/plain');
-      const newStatus = list.dataset.status;
-      await window.api.tasks.update(taskId, { status: newStatus });
+      const newColumn = list.dataset.status;
+      let beforeCard = dragPlaceholder?.nextElementSibling || null;
+      while (beforeCard?.classList.contains('dragging')) beforeCard = beforeCard.nextElementSibling;
+      if (!beforeCard?.classList.contains('task-card')) beforeCard = null;
+      dragPlaceholder?.remove();
+      const columnTasks = tasks.filter(task => (task.column_status || 'todo') === newColumn && String(task.id) !== String(taskId));
+      const beforeId = beforeCard?.dataset.id;
+      const beforeIndex = beforeId ? columnTasks.findIndex(task => String(task.id) === String(beforeId)) : columnTasks.length;
+      const previousOrder = beforeIndex > 0 ? Number(columnTasks[beforeIndex - 1].sort_order) : 0;
+      const nextOrder = beforeIndex < columnTasks.length ? Number(columnTasks[beforeIndex].sort_order) : previousOrder + 2000;
+      const sortOrder = previousOrder + ((nextOrder - previousOrder) / 2);
+      await window.api.tasks.update(taskId, { column_status: newColumn, sort_order: sortOrder });
       await loadTasks();
       renderBoard();
     });
@@ -188,8 +211,18 @@ function setupDragAndDrop() {
   document.addEventListener('dragend', (e) => {
     if (e.target.classList.contains('task-card')) {
       e.target.classList.remove('dragging');
+      dragPlaceholder?.remove();
+      document.querySelectorAll('.task-list.drag-over').forEach(list => list.classList.remove('drag-over'));
     }
   });
+}
+
+function getDragAfterElement(list, y) {
+  return [...list.querySelectorAll('.task-card:not(.dragging)')].reduce((closest, card) => {
+    const box = card.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    return offset < 0 && offset > closest.offset ? { offset, element: card } : closest;
+  }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
 }
 
 // ─── Modal ──────────────────────────────────────────
@@ -226,6 +259,7 @@ function setupEventListeners() {
   document.getElementById('revertDraftBtn').addEventListener('click', revertDraft);
   document.getElementById('addCommentBtn').addEventListener('click', addComment);
   document.getElementById('taskForm').addEventListener('input', scheduleDraftSave);
+  document.addEventListener('keydown', handleKeyboardShortcut);
 
   // Live Shamsi → Miladi conversion
   document.getElementById('taskShamsi').addEventListener('input', updateMiladiLabel);
@@ -257,9 +291,9 @@ function isNewerVersion(candidate, current) {
   return false;
 }
 
-async function openModal(task = null, presetStatus = 'pending') {
+async function openModal(task = null, presetColumn = 'todo') {
   editingTaskId = task ? task.id : null;
-  newTaskStatus = presetStatus;
+  newTaskColumn = presetColumn;
   editingBaseTask = task ? structuredClone(task) : null;
   draftDirty = false;
   clearTimeout(draftTimer);
@@ -267,7 +301,8 @@ async function openModal(task = null, presetStatus = 'pending') {
   document.getElementById('taskId').value = task?.id || '';
   document.getElementById('taskTitle').value = task?.title || '';
   document.getElementById('taskDescription').value = task?.description || '';
-  document.getElementById('taskStatus').value = normalizeStatus(task?.status || presetStatus);
+  document.getElementById('taskStatus').value = normalizeStatus(task?.status);
+  document.getElementById('taskPriority').value = task?.priority || 'medium';
   document.getElementById('deleteTaskBtn').classList.toggle('hidden', !task);
   document.getElementById('saveDraftBtn').classList.toggle('hidden', !task);
   document.getElementById('revertDraftBtn').classList.add('hidden');
@@ -335,6 +370,7 @@ function populateForm(data) {
   document.getElementById('taskTitle').value = data.title || '';
   document.getElementById('taskDescription').value = data.description || '';
   document.getElementById('taskStatus').value = normalizeStatus(data.status);
+  document.getElementById('taskPriority').value = data.priority || 'medium';
   document.getElementById('taskShamsi').value = data.shamsi_date || '';
   updateMiladiLabel();
   const container = document.getElementById('customFieldsContainer');
@@ -360,7 +396,9 @@ function collectFormData() {
     shamsi_date: shamsi,
     miladi_date: miladi,
     custom_fields: customFields,
-    status: document.getElementById('taskStatus').value || newTaskStatus,
+    status: document.getElementById('taskStatus').value || 'pending',
+    column_status: editingBaseTask?.column_status || newTaskColumn,
+    priority: document.getElementById('taskPriority').value || 'medium',
   };
 }
 
@@ -518,7 +556,7 @@ function formatTimestamp(value) {
 }
 
 async function archiveDoneTasks() {
-  const doneCount = tasks.filter(t => t.status === 'done').length;
+  const doneCount = tasks.filter(t => t.column_status === 'done').length;
   if (!doneCount) return;
   await window.api.tasks.archiveAllDone();
   await loadTasks();
@@ -536,7 +574,7 @@ function closeArchive() {
 
 function renderArchive() {
   const list = document.getElementById('archiveList');
-  const archived = tasks.filter(t => t.status === 'archived');
+  const archived = tasks.filter(t => t.column_status === 'archived');
   if (!archived.length) {
     list.innerHTML = '<div class="empty-state"><span>✓</span><strong>Archive is empty</strong><p>Completed tasks you archive will appear here.</p></div>';
     return;
@@ -547,7 +585,7 @@ function renderArchive() {
     item.className = 'archive-item';
     item.innerHTML = `<div><strong>${escapeHtml(task.title)}</strong>${task.shamsi_date ? `<span>Deadline ${escapeHtml(task.shamsi_date)}</span>` : ''}</div><button class="btn btn-secondary btn-sm">Restore to Done</button>`;
     item.querySelector('button').addEventListener('click', async () => {
-      await window.api.tasks.update(task.id, { status: 'done' });
+      await window.api.tasks.update(task.id, { column_status: 'done' });
       await loadTasks();
       renderBoard();
       renderArchive();
@@ -673,4 +711,19 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str ?? '';
   return div.innerHTML;
+}
+
+function handleKeyboardShortcut(event) {
+  const modifier = event.metaKey || event.ctrlKey;
+  if (modifier && event.key.toLowerCase() === 'n') {
+    event.preventDefault();
+    openModal();
+  } else if (modifier && event.key === 'Enter' && !document.getElementById('modalOverlay').classList.contains('hidden')) {
+    event.preventDefault();
+    document.getElementById('taskForm').requestSubmit();
+  } else if (event.key === 'Escape') {
+    if (!document.getElementById('modalOverlay').classList.contains('hidden')) closeModal();
+    else if (!document.getElementById('archiveOverlay').classList.contains('hidden')) closeArchive();
+    else if (!document.getElementById('settingsOverlay').classList.contains('hidden')) closeSettings();
+  }
 }
