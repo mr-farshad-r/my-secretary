@@ -12,6 +12,7 @@
       <h1>📋 My Secretary</h1>
     </div>
     <div class="header-right">
+      <button id="settingsBtn" class="btn btn-ghost" aria-label="Open settings">Settings</button>
       <button id="viewArchiveBtn" class="btn btn-ghost">Archive <span id="archiveCount" class="button-count">0</span></button>
       <button id="addTaskBtn" class="btn btn-primary">+ New Task</button>
     </div>
@@ -27,22 +28,22 @@
   </aside>
 
   <main id="board">
-    <div class="column" data-status="todo">
+    <div class="column" data-status="pending">
       <div class="column-header">
-        <h2>Todo</h2>
-        <span class="badge" id="count-todo">0</span>
+        <h2>Pending</h2>
+        <span class="badge" id="count-pending">0</span>
       </div>
-      <div class="task-list" data-status="todo"></div>
-      <button class="add-to-column" data-status="todo">+ Add</button>
+      <div class="task-list" data-status="pending"></div>
+      <button class="add-to-column" data-status="pending">+ Add</button>
     </div>
 
-    <div class="column" data-status="inprogress">
+    <div class="column" data-status="wip">
       <div class="column-header">
-        <h2>In Progress</h2>
-        <span class="badge" id="count-inprogress">0</span>
+        <h2>WIP</h2>
+        <span class="badge" id="count-wip">0</span>
       </div>
-      <div class="task-list" data-status="inprogress"></div>
-      <button class="add-to-column" data-status="inprogress">+ Add</button>
+      <div class="task-list" data-status="wip"></div>
+      <button class="add-to-column" data-status="wip">+ Add</button>
     </div>
 
     <div class="column" data-status="done">
@@ -73,6 +74,14 @@
 
         <div class="form-row">
           <div>
+            <label>Status</label>
+            <select id="taskStatus">
+              <option value="pending">PENDING</option>
+              <option value="wip">WIP</option>
+              <option value="done">DONE</option>
+            </select>
+          </div>
+          <div>
             <label>Deadline (Shamsi)</label>
             <input type="text" id="taskShamsi" placeholder="1403/05/15">
           </div>
@@ -102,6 +111,15 @@
         <div id="customFieldsContainer"></div>
         <button type="button" id="addFieldBtn" class="btn btn-ghost btn-sm">+ Add Field</button>
 
+        <section id="commentsSection" class="comments-section hidden">
+          <label>Comments</label>
+          <div class="comment-composer">
+            <textarea id="commentBody" rows="3" placeholder="Add a comment..."></textarea>
+            <button type="button" id="addCommentBtn" class="btn btn-secondary">Add comment</button>
+          </div>
+          <div id="commentsList" class="comments-list"></div>
+        </section>
+
         <div id="timestamps" class="timestamps hidden">
           <span id="createdAtLabel">Created: --</span>
           <span id="updatedAtLabel">Updated: --</span>
@@ -130,6 +148,22 @@
         <button id="closeArchive" class="btn-icon" aria-label="Close archive">✕</button>
       </div>
       <div id="archiveList" class="archive-list"></div>
+    </section>
+  </div>
+
+  <div id="settingsOverlay" class="modal-overlay hidden">
+    <section class="modal settings-modal" aria-labelledby="settingsTitle">
+      <div class="modal-header">
+        <h2 id="settingsTitle">Settings</h2>
+        <button id="closeSettings" class="btn-icon" aria-label="Close settings">✕</button>
+      </div>
+      <div class="settings-content">
+        <label class="checkbox-setting">
+          <input type="checkbox" id="openAtStartup">
+          <span><strong>Open at startup</strong><small>Start My Secretary when you log in to your computer.</small></span>
+        </label>
+        <p id="settingsStatus" class="settings-status" aria-live="polite"></p>
+      </div>
     </section>
   </div>
 

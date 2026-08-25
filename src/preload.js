@@ -17,4 +17,13 @@ contextBridge.exposeInMainWorld('api', {
     saveDraft: (id, data) => ipcRenderer.invoke('tasks:saveDraft', id, data),
     deleteDraft: (id) => ipcRenderer.invoke('tasks:deleteDraft', id),
   },
+  comments: {
+    getAll: (taskId) => ipcRenderer.invoke('comments:getAll', taskId),
+    add: (taskId, body) => ipcRenderer.invoke('comments:add', taskId, body),
+    delete: (taskId, commentId) => ipcRenderer.invoke('comments:delete', taskId, commentId),
+  },
+  settings: {
+    get: () => ipcRenderer.invoke('settings:get'),
+    setOpenAtLogin: (enabled) => ipcRenderer.invoke('settings:setOpenAtLogin', enabled),
+  },
 });

@@ -13,8 +13,8 @@
   --warning: #ffd43b;
   --radius: 10px;
   --shadow: 0 4px 24px rgba(0,0,0,0.4);
-  --col-todo: #6c8cff;
-  --col-progress: #ffd43b;
+  --col-pending: #6c8cff;
+  --col-wip: #ffd43b;
   --col-done: #51cf66;
 }
 
@@ -133,8 +133,8 @@ body:has(.update-banner:not(.hidden)) #board { height: calc(100vh - 125px); padd
 .btn-icon.compact { font-size: 11px; border: 1px solid transparent; padding: 4px 7px; }
 .btn-icon.compact:hover { border-color: var(--border); }
 
-.column[data-status="todo"] .column-header h2 { color: var(--col-todo); }
-.column[data-status="inprogress"] .column-header h2 { color: var(--col-progress); }
+.column[data-status="pending"] .column-header h2 { color: var(--col-pending); }
+.column[data-status="wip"] .column-header h2 { color: var(--col-wip); }
 .column[data-status="done"] .column-header h2 { color: var(--col-done); }
 
 .badge {
@@ -186,6 +186,12 @@ body:has(.update-banner:not(.hidden)) #board { height: calc(100vh - 125px); padd
   margin-bottom: 6px;
   line-height: 1.4;
 }
+.task-card-heading { display: flex; align-items: flex-start; gap: 8px; }
+.task-card-heading .task-card-title { flex: 1; min-width: 0; }
+.status-chip { flex: 0 0 auto; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 800; letter-spacing: .4px; }
+.status-pending { color: var(--col-pending); background: rgba(108,140,255,.12); }
+.status-wip { color: var(--col-wip); background: rgba(255,212,59,.12); }
+.status-done { color: var(--col-done); background: rgba(81,207,102,.12); }
 
 .task-card-date {
   font-size: 11px;
@@ -289,7 +295,7 @@ label:first-child { margin-top: 0; }
 
 .required { color: var(--danger); }
 
-input[type="text"], input[type="date"], textarea {
+input[type="text"], input[type="date"], textarea, select {
   width: 100%;
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -301,7 +307,8 @@ input[type="text"], input[type="date"], textarea {
   outline: none;
   transition: border-color 0.15s;
 }
-input:focus, textarea:focus { border-color: var(--primary); }
+input:focus, textarea:focus, select:focus { border-color: var(--primary); }
+select { appearance: none; min-height: 40px; }
 textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
 
 .form-row {
@@ -461,6 +468,30 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
   min-height: 40px;
   line-height: 1.4;
 }
+
+/* ─── Comments ───────────────────────────────────── */
+.comments-section { margin-top: 22px; }
+.comment-composer { display: flex; gap: 8px; align-items: flex-end; }
+.comment-composer textarea { min-height: 76px; }
+.comment-composer .btn { flex: 0 0 auto; }
+.comments-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.comment-item { padding: 11px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; }
+.comment-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; }
+.comment-body { font-size: 13px; line-height: 1.5; white-space: pre-wrap; user-select: text; }
+.comment-time { color: var(--text-dim); font-size: 10px; font-family: "SF Mono", "Fira Code", monospace; direction: ltr; }
+.delete-comment { padding: 2px 5px; background: transparent; border: 0; border-radius: 4px; color: var(--text-dim); cursor: pointer; font: inherit; font-size: 10px; }
+.delete-comment:hover { background: rgba(255,107,107,.12); color: var(--danger); }
+.comments-empty { color: var(--text-dim); font-size: 12px; padding: 8px 2px; }
+
+/* ─── Settings ───────────────────────────────────── */
+.settings-modal { width: 480px; }
+.settings-content { padding: 24px; }
+.checkbox-setting { margin: 0; padding: 14px; display: flex; align-items: flex-start; gap: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; text-transform: none; letter-spacing: 0; }
+.checkbox-setting input { width: 17px; height: 17px; margin-top: 2px; accent-color: var(--primary); }
+.checkbox-setting span { display: flex; flex-direction: column; gap: 5px; }
+.checkbox-setting strong { color: var(--text); font-size: 14px; }
+.checkbox-setting small { color: var(--text-dim); font-size: 12px; font-weight: 400; }
+.settings-status { min-height: 16px; margin-top: 10px; color: var(--text-dim); font-size: 11px; }
 
 /* ─── Utilities ───────────────────────────────────── */
 .hidden { display: none !important; }

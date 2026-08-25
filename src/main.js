@@ -58,6 +58,16 @@ app.whenReady().then(() => {
   ipcMain.handle('tasks:getDraft', (_e, id) => db.getDraft(id));
   ipcMain.handle('tasks:saveDraft', (_e, id, data) => db.saveDraft(id, data));
   ipcMain.handle('tasks:deleteDraft', (_e, id) => db.deleteDraft(id));
+  ipcMain.handle('comments:getAll', (_e, taskId) => db.getComments(taskId));
+  ipcMain.handle('comments:add', (_e, taskId, body) => db.addComment(taskId, body));
+  ipcMain.handle('comments:delete', (_e, taskId, commentId) => db.deleteComment(taskId, commentId));
+  ipcMain.handle('settings:get', () => ({
+    openAtLogin: app.getLoginItemSettings().openAtLogin,
+  }));
+  ipcMain.handle('settings:setOpenAtLogin', (_e, enabled) => {
+    app.setLoginItemSettings({ openAtLogin: Boolean(enabled) });
+    return { openAtLogin: app.getLoginItemSettings().openAtLogin };
+  });
   ipcMain.handle('app:checkForUpdate', () => checkForUpdate());
   ipcMain.handle('app:openRelease', (_e, releaseUrl) => {
     const url = new URL(releaseUrl);

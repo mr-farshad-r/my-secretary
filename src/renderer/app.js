@@ -5,9 +5,16 @@ let isPreviewMode = false;
 let editingBaseTask = null;
 let draftTimer = null;
 let draftDirty = false;
-let newTaskStatus = 'todo';
+let newTaskStatus = 'pending';
 
-const STATUS_COLUMNS = ['todo', 'inprogress', 'done'];
+const STATUS_COLUMNS = ['pending', 'wip', 'done'];
+const STATUS_LABELS = { pending: 'PENDING', wip: 'WIP', done: 'DONE' };
+
+function normalizeStatus(status) {
+  if (status === 'todo') return 'pending';
+  if (status === 'inprogress') return 'wip';
+  return STATUS_COLUMNS.includes(status) ? status : 'pending';
+}
 
 // ─── Shamsi ↔ Miladi conversion ──────────────────────
 // jalaali-js loaded via script tag in index.html (exposes window.jalaali)
@@ -88,6 +95,7 @@ async function saveTask(data) {
     return window.api.tasks.update(data.id, {
       title: data.title,
       description: data.description,
+      status: data.status,
       shamsi_date: data.shamsi_date,
       miladi_date: data.miladi_date,
       custom_fields: data.custom_fields,
@@ -96,7 +104,7 @@ async function saveTask(data) {
   return window.api.tasks.create({
     title: data.title,
     description: data.description,
-    status: data.status || 'todo',
+    status: data.status || 'pending',
     shamsi_date: data.shamsi_date,
     miladi_date: data.miladi_date,
     custom_fields: data.custom_fields,
@@ -141,7 +149,7 @@ function createTaskCard(task) {
   }
 
   card.innerHTML = `
-    <div class="task-card-title">${escapeHtml(task.title)}</div>
+    <div class="task-card-heading"><div class="task-card-title">${escapeHtml(task.title)}</div><span class="status-chip status-${escapeHtml(task.status)}">${escapeHtml(STATUS_LABELS[task.status] || task.status)}</span></div>
     ${dateChips.length ? `<div class="task-card-date">${dateChips.join('')}</div>` : ''}
     ${fieldBadges.length ? `<div class="task-card-badges">${fieldBadges.join('')}</div>` : ''}
   `;
@@ -189,6 +197,12 @@ function setupEventListeners() {
   document.getElementById('dismissUpdateBtn').addEventListener('click', () => {
     document.getElementById('updateBanner').classList.add('hidden');
   });
+  document.getElementById('settingsBtn').addEventListener('click', openSettings);
+  document.getElementById('closeSettings').addEventListener('click', closeSettings);
+  document.getElementById('settingsOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'settingsOverlay') closeSettings();
+  });
+  document.getElementById('openAtStartup').addEventListener('change', saveStartupSetting);
   document.getElementById('addTaskBtn').addEventListener('click', () => openModal());
   document.getElementById('archiveDoneBtn').addEventListener('click', archiveDoneTasks);
   document.getElementById('viewArchiveBtn').addEventListener('click', openArchive);
@@ -210,6 +224,7 @@ function setupEventListeners() {
   document.getElementById('addFieldBtn').addEventListener('click', () => addCustomField());
   document.getElementById('saveDraftBtn').addEventListener('click', () => persistDraft(true));
   document.getElementById('revertDraftBtn').addEventListener('click', revertDraft);
+  document.getElementById('addCommentBtn').addEventListener('click', addComment);
   document.getElementById('taskForm').addEventListener('input', scheduleDraftSave);
 
   // Live Shamsi → Miladi conversion
@@ -242,7 +257,7 @@ function isNewerVersion(candidate, current) {
   return false;
 }
 
-async function openModal(task = null, presetStatus = 'todo') {
+async function openModal(task = null, presetStatus = 'pending') {
   editingTaskId = task ? task.id : null;
   newTaskStatus = presetStatus;
   editingBaseTask = task ? structuredClone(task) : null;
@@ -252,6 +267,7 @@ async function openModal(task = null, presetStatus = 'todo') {
   document.getElementById('taskId').value = task?.id || '';
   document.getElementById('taskTitle').value = task?.title || '';
   document.getElementById('taskDescription').value = task?.description || '';
+  document.getElementById('taskStatus').value = normalizeStatus(task?.status || presetStatus);
   document.getElementById('deleteTaskBtn').classList.toggle('hidden', !task);
   document.getElementById('saveDraftBtn').classList.toggle('hidden', !task);
   document.getElementById('revertDraftBtn').classList.add('hidden');
@@ -291,6 +307,10 @@ async function openModal(task = null, presetStatus = 'todo') {
   document.getElementById('previewBtn').classList.remove('active');
 
   document.getElementById('modalOverlay').classList.remove('hidden');
+  const commentsSection = document.getElementById('commentsSection');
+  commentsSection.classList.toggle('hidden', !task);
+  document.getElementById('commentBody').value = '';
+  if (task) await loadComments(task.id);
   if (task) {
     const draft = await window.api.tasks.getDraft(task.id);
     if (editingTaskId !== task.id) return;
@@ -314,6 +334,7 @@ async function closeModal() {
 function populateForm(data) {
   document.getElementById('taskTitle').value = data.title || '';
   document.getElementById('taskDescription').value = data.description || '';
+  document.getElementById('taskStatus').value = normalizeStatus(data.status);
   document.getElementById('taskShamsi').value = data.shamsi_date || '';
   updateMiladiLabel();
   const container = document.getElementById('customFieldsContainer');
@@ -339,7 +360,7 @@ function collectFormData() {
     shamsi_date: shamsi,
     miladi_date: miladi,
     custom_fields: customFields,
-    status: newTaskStatus,
+    status: document.getElementById('taskStatus').value || newTaskStatus,
   };
 }
 
@@ -379,12 +400,90 @@ async function handleSubmit(e) {
  renderBoard();
 }
 
-function scheduleDraftSave() {
+function scheduleDraftSave(event) {
+  if (event?.target?.id === 'commentBody') return;
   if (!editingTaskId) return;
   draftDirty = true;
   setDraftStatus('Saving draft…');
   clearTimeout(draftTimer);
   draftTimer = setTimeout(() => persistDraft(false), 650);
+}
+
+async function loadComments(taskId) {
+  const comments = await window.api.comments.getAll(taskId);
+  const list = document.getElementById('commentsList');
+  if (!comments.length) {
+    list.innerHTML = '<p class="comments-empty">No comments yet.</p>';
+    return;
+  }
+  list.innerHTML = comments.map(comment => `
+    <article class="comment-item">
+      <div class="comment-header">
+        <time class="comment-time">${escapeHtml(comment.shamsi_created_at)}</time>
+        <button type="button" class="delete-comment" data-comment-id="${escapeHtml(comment.id)}" aria-label="Delete comment" title="Delete comment">Delete</button>
+      </div>
+      <div class="comment-body">${escapeHtml(comment.body)}</div>
+    </article>
+  `).join('');
+  list.querySelectorAll('.delete-comment').forEach(button => {
+    button.addEventListener('click', () => deleteComment(button.dataset.commentId));
+  });
+}
+
+async function addComment() {
+  if (!editingTaskId) return;
+  const input = document.getElementById('commentBody');
+  const body = input.value.trim();
+  if (!body) return;
+  const button = document.getElementById('addCommentBtn');
+  button.disabled = true;
+  try {
+    await window.api.comments.add(editingTaskId, body);
+    input.value = '';
+    await loadComments(editingTaskId);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function deleteComment(commentId) {
+  if (!editingTaskId || !commentId) return;
+  if (!confirm('Delete this comment?')) return;
+  await window.api.comments.delete(editingTaskId, commentId);
+  await loadComments(editingTaskId);
+}
+
+async function openSettings() {
+  const status = document.getElementById('settingsStatus');
+  status.textContent = '';
+  document.getElementById('settingsOverlay').classList.remove('hidden');
+  try {
+    const settings = await window.api.settings.get();
+    document.getElementById('openAtStartup').checked = Boolean(settings.openAtLogin);
+  } catch (error) {
+    status.textContent = `Could not load setting: ${error.message}`;
+  }
+}
+
+function closeSettings() {
+  document.getElementById('settingsOverlay').classList.add('hidden');
+}
+
+async function saveStartupSetting(event) {
+  const checkbox = event.target;
+  const status = document.getElementById('settingsStatus');
+  checkbox.disabled = true;
+  status.textContent = 'Saving…';
+  try {
+    const saved = await window.api.settings.setOpenAtLogin(checkbox.checked);
+    checkbox.checked = Boolean(saved.openAtLogin);
+    status.textContent = 'Setting saved.';
+  } catch (error) {
+    checkbox.checked = !checkbox.checked;
+    status.textContent = `Could not save setting: ${error.message}`;
+  } finally {
+    checkbox.disabled = false;
+  }
 }
 
 async function persistDraft(showConfirmation = false) {

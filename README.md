@@ -14,8 +14,10 @@ My Secretary is a lightweight desktop task manager with a Kanban-style board. It
 
 ## Features
 
-- Kanban board with **Todo**, **In Progress**, and **Done** columns
+- Kanban board with **Pending**, **WIP**, and **Done** statuses
 - Drag and drop tasks between columns
+- Multiple comments per task with Shamsi date and local time
+- Optional launch at system startup
 - Persistent draft autosave while editing a task
 - Manual **Save draft** and **Revert draft** actions
 - One-click archiving of all completed tasks

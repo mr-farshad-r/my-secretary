@@ -1,7 +1,6 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const { app } = require('electron');
-const fs = require('fs');
 const jalaali = require('jalaali-js');
 
 let db;
@@ -24,13 +23,14 @@ function initDb() {
   const dbPath = getDbPath();
   db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
       description TEXT DEFAULT '',
-      status TEXT NOT NULL DEFAULT 'todo',
+      status TEXT NOT NULL DEFAULT 'pending',
       shamsi_date TEXT,
       miladi_date TEXT,
       custom_fields TEXT DEFAULT '{}',
@@ -46,6 +46,18 @@ function initDb() {
       FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS task_comments (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      body TEXT NOT NULL,
+      shamsi_created_at TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS task_comments_task_id
+    ON task_comments(task_id, created_at DESC);
+
     CREATE TRIGGER IF NOT EXISTS tasks_updated_at
     AFTER UPDATE ON tasks
     FOR EACH ROW
@@ -53,6 +65,10 @@ function initDb() {
       UPDATE tasks SET updated_at = datetime('now') WHERE id = OLD.id;
     END;
   `);
+
+  // Migrate the original board values to the user-facing workflow names.
+  db.prepare("UPDATE tasks SET status = 'pending' WHERE status = 'todo'").run();
+  db.prepare("UPDATE tasks SET status = 'wip' WHERE status = 'inprogress'").run();
 
   return db;
 }
@@ -76,7 +92,7 @@ function createTask(task) {
     id,
     title: task.title,
     description: task.description || '',
-    status: task.status || 'todo',
+    status: task.status || 'pending',
     shamsi_date: shamsiDate,
     miladi_date: miladiDate,
     custom_fields: JSON.stringify(task.custom_fields || {}),
@@ -148,6 +164,38 @@ function archiveAllDone() {
   return result.changes;
 }
 
+function shamsiTimestamp(date = new Date()) {
+  const j = jalaali.toJalaali(date.getFullYear(), date.getMonth() + 1, date.getDate());
+  const datePart = `${j.jy}/${String(j.jm).padStart(2, '0')}/${String(j.jd).padStart(2, '0')}`;
+  const timePart = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  return `${datePart} ${timePart}`;
+}
+
+function getComments(taskId) {
+  return getDb().prepare(`
+    SELECT * FROM task_comments WHERE task_id = ? ORDER BY created_at DESC, rowid DESC
+  `).all(taskId);
+}
+
+function addComment(taskId, body) {
+  const trimmedBody = String(body || '').trim();
+  if (!trimmedBody) throw new Error('Comment cannot be empty');
+  if (!getTask(taskId)) throw new Error('Task not found');
+  const id = require('crypto').randomUUID();
+  getDb().prepare(`
+    INSERT INTO task_comments (id, task_id, body, shamsi_created_at)
+    VALUES (?, ?, ?, ?)
+  `).run(id, taskId, trimmedBody, shamsiTimestamp());
+  return getDb().prepare('SELECT * FROM task_comments WHERE id = ?').get(id);
+}
+
+function deleteComment(taskId, commentId) {
+  const result = getDb().prepare(`
+    DELETE FROM task_comments WHERE id = ? AND task_id = ?
+  `).run(commentId, taskId);
+  return result.changes > 0;
+}
+
 module.exports = {
   initDb,
   createTask,
@@ -159,4 +207,7 @@ module.exports = {
   getDraft,
   deleteDraft,
   archiveAllDone,
+  getComments,
+  addComment,
+  deleteComment,
 };
