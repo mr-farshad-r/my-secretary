@@ -22,6 +22,12 @@ contextBridge.exposeInMainWorld('api', {
     add: (taskId, body) => ipcRenderer.invoke('comments:add', taskId, body),
     delete: (taskId, commentId) => ipcRenderer.invoke('comments:delete', taskId, commentId),
   },
+  categories: {
+    getAll: () => ipcRenderer.invoke('categories:getAll'),
+    create: (name) => ipcRenderer.invoke('categories:create', name),
+    update: (id, name) => ipcRenderer.invoke('categories:update', id, name),
+    delete: (id) => ipcRenderer.invoke('categories:delete', id),
+  },
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
     setOpenAtLogin: (enabled) => ipcRenderer.invoke('settings:setOpenAtLogin', enabled),

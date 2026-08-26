@@ -131,6 +131,15 @@ body:has(.update-banner:not(.hidden)) #board { height: calc(100vh - 125px); padd
   letter-spacing: 0.5px;
 }
 .column-actions { display: flex; align-items: center; gap: 8px; }
+.category-filter {
+  width: auto;
+  max-width: 130px;
+  min-height: 28px;
+  padding: 4px 24px 4px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
 .btn-icon.compact { font-size: 11px; border: 1px solid transparent; padding: 4px 7px; }
 .btn-icon.compact:hover { border-color: var(--border); }
 
@@ -231,6 +240,7 @@ body:has(.update-banner:not(.hidden)) #board { height: calc(100vh - 125px); padd
   border-radius: 4px;
 }
 .task-card-date .date-chip:first-child { color: var(--text); }
+.category-chip { color: var(--primary); background: rgba(108,140,255,.12); padding: 2px 8px; border-radius: 4px; font-weight: 600; }
 .secondary-date { opacity: .72; }
 .remaining-days { color: var(--success); font-weight: 600; }
 .remaining-days.overdue { color: var(--danger); }
@@ -344,10 +354,11 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
 
 .form-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 16px;
   margin-top: 16px;
 }
-.form-row > div { flex: 1; }
+.form-row > div { flex: 1 1 110px; }
 .form-row label { margin-top: 0; }
 
 /* ─── Markdown Editor ─────────────────────────────── */
@@ -526,6 +537,15 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
 .shortcut-help { margin-top: 16px; padding: 14px; display: flex; flex-direction: column; gap: 9px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; font-size: 12px; color: var(--text-dim); }
 .shortcut-help strong { color: var(--text); font-size: 13px; }
 .shortcut-help kbd { padding: 2px 5px; color: var(--text); background: var(--surface-3); border: 1px solid var(--border); border-radius: 4px; font: inherit; font-size: 10px; }
+
+/* ─── Categories ─────────────────────────────────── */
+.categories-modal { width: 560px; }
+.categories-content { padding: 20px 24px 24px; }
+.category-form { display: flex; gap: 8px; }
+.category-form input { flex: 1; }
+.categories-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.category-row { display: flex; align-items: center; gap: 8px; padding: 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; }
+.category-row input { flex: 1; }
 
 /* ─── Utilities ───────────────────────────────────── */
 .hidden { display: none !important; }

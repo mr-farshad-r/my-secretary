@@ -1,5 +1,7 @@
 // ─── State ──────────────────────────────────────────
 let tasks = [];
+let categories = [];
+const categoryFilters = { todo: 'all', wip: 'all', done: 'all' };
 let editingTaskId = null;
 let isPreviewMode = false;
 let editingBaseTask = null;
@@ -78,7 +80,8 @@ function isWebLink(value) {
 
 // ─── Init ───────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  await loadTasks();
+  await Promise.all([loadTasks(), loadCategories()]);
+  renderCategoryOptions();
   renderBoard();
   setupEventListeners();
   setupDragAndDrop();
@@ -90,6 +93,10 @@ async function loadTasks() {
   tasks = await window.api.tasks.getAll();
 }
 
+async function loadCategories() {
+  categories = await window.api.categories.getAll();
+}
+
 async function saveTask(data) {
   if (data.id) {
     return window.api.tasks.update(data.id, {
@@ -98,6 +105,7 @@ async function saveTask(data) {
       status: data.status,
       column_status: data.column_status,
       priority: data.priority,
+      category_id: data.category_id,
       shamsi_date: data.shamsi_date,
       miladi_date: data.miladi_date,
       custom_fields: data.custom_fields,
@@ -109,6 +117,7 @@ async function saveTask(data) {
     status: data.status || 'pending',
     column_status: data.column_status || 'todo',
     priority: data.priority || 'medium',
+    category_id: data.category_id,
     shamsi_date: data.shamsi_date,
     miladi_date: data.miladi_date,
     custom_fields: data.custom_fields,
@@ -121,7 +130,9 @@ function renderBoard() {
     const list = document.querySelector(`.task-list[data-status="${status}"]`);
     const count = document.getElementById(`count-${status}`);
     list.innerHTML = '';
-    const colTasks = tasks.filter(t => (t.column_status || 'todo') === status);
+    const filter = categoryFilters[status];
+    const colTasks = tasks.filter(t => (t.column_status || 'todo') === status)
+      .filter(t => filter === 'all' || (filter === 'none' ? !t.category_id : t.category_id === filter));
     count.textContent = colTasks.length;
 
     colTasks.forEach(task => {
@@ -148,10 +159,11 @@ function createTaskCard(task) {
   const customFieldCount = task.custom_fields
     ? Object.values(task.custom_fields).filter(value => value !== null && value !== undefined && String(value).trim() !== '').length
     : 0;
+  const category = categories.find(item => item.id === task.category_id);
 
   card.innerHTML = `
     <div class="task-card-heading"><div class="task-card-title">${escapeHtml(task.title)}</div><div class="task-card-chips"><span class="priority-chip priority-${escapeHtml(task.priority || 'medium')}">${escapeHtml((task.priority || 'medium').toUpperCase())}</span><span class="status-chip status-${escapeHtml(task.status)}">${escapeHtml(STATUS_LABELS[task.status] || task.status)}</span></div></div>
-    ${dateChips.length ? `<div class="task-card-date">${dateChips.join('')}</div>` : ''}
+    ${(dateChips.length || category) ? `<div class="task-card-date">${category ? `<span class="category-chip">${escapeHtml(category.name)}</span>` : ''}${dateChips.join('')}</div>` : ''}
     ${customFieldCount ? `<div class="task-card-badges"><span class="field-count-badge" title="${customFieldCount} custom ${customFieldCount === 1 ? 'field' : 'fields'}">${customFieldCount} custom ${customFieldCount === 1 ? 'field' : 'fields'}</span></div>` : ''}
   `;
 
@@ -231,6 +243,18 @@ function setupEventListeners() {
     document.getElementById('updateBanner').classList.add('hidden');
   });
   document.getElementById('settingsBtn').addEventListener('click', openSettings);
+  document.getElementById('categoriesBtn').addEventListener('click', openCategories);
+  document.getElementById('closeCategories').addEventListener('click', closeCategories);
+  document.getElementById('categoriesOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'categoriesOverlay') closeCategories();
+  });
+  document.getElementById('categoryForm').addEventListener('submit', addCategory);
+  document.querySelectorAll('.category-filter').forEach(select => {
+    select.addEventListener('change', () => {
+      categoryFilters[select.dataset.status] = select.value;
+      renderBoard();
+    });
+  });
   document.getElementById('closeSettings').addEventListener('click', closeSettings);
   document.getElementById('settingsOverlay').addEventListener('click', (e) => {
     if (e.target.id === 'settingsOverlay') closeSettings();
@@ -303,17 +327,13 @@ async function openModal(task = null, presetColumn = 'todo') {
   document.getElementById('taskDescription').value = task?.description || '';
   document.getElementById('taskStatus').value = normalizeStatus(task?.status);
   document.getElementById('taskPriority').value = task?.priority || 'medium';
+  document.getElementById('taskCategory').value = task?.category_id || '';
   document.getElementById('deleteTaskBtn').classList.toggle('hidden', !task);
   document.getElementById('saveDraftBtn').classList.toggle('hidden', !task);
   document.getElementById('revertDraftBtn').classList.add('hidden');
   setDraftStatus('', true);
 
-  // Dates: auto-fill today for new tasks; use existing for edits
-  if (task?.shamsi_date) {
-    document.getElementById('taskShamsi').value = task.shamsi_date;
-  } else {
-    document.getElementById('taskShamsi').value = todayShamsi();
-  }
+  document.getElementById('taskShamsi').value = task?.shamsi_date || '';
   updateMiladiLabel();
 
   // Timestamps: show for existing tasks
@@ -371,6 +391,7 @@ function populateForm(data) {
   document.getElementById('taskDescription').value = data.description || '';
   document.getElementById('taskStatus').value = normalizeStatus(data.status);
   document.getElementById('taskPriority').value = data.priority || 'medium';
+  document.getElementById('taskCategory').value = data.category_id || '';
   document.getElementById('taskShamsi').value = data.shamsi_date || '';
   updateMiladiLabel();
   const container = document.getElementById('customFieldsContainer');
@@ -387,14 +408,15 @@ function collectFormData() {
   });
 
   const shamsi = document.getElementById('taskShamsi').value.trim();
-  const miladi = shamsiToMiladi(shamsi) || '';
+  const miladi = shamsiToMiladi(shamsi);
 
   return {
     id: document.getElementById('taskId').value || null,
     title: document.getElementById('taskTitle').value.trim(),
     description: document.getElementById('taskDescription').value,
-    shamsi_date: shamsi,
+    shamsi_date: shamsi || null,
     miladi_date: miladi,
+    category_id: document.getElementById('taskCategory').value || null,
     custom_fields: customFields,
     status: document.getElementById('taskStatus').value || 'pending',
     column_status: editingBaseTask?.column_status || newTaskColumn,
@@ -521,6 +543,85 @@ async function saveStartupSetting(event) {
     status.textContent = `Could not save setting: ${error.message}`;
   } finally {
     checkbox.disabled = false;
+  }
+}
+
+function renderCategoryOptions() {
+  const taskSelect = document.getElementById('taskCategory');
+  const currentTaskCategory = taskSelect?.value || '';
+  if (taskSelect) {
+    taskSelect.innerHTML = '<option value="">No category</option>' + categories.map(category =>
+      `<option value="${escapeHtml(category.id)}">${escapeHtml(category.name)}</option>`
+    ).join('');
+    taskSelect.value = categories.some(category => category.id === currentTaskCategory) ? currentTaskCategory : '';
+  }
+  document.querySelectorAll('.category-filter').forEach(select => {
+    const status = select.dataset.status;
+    const current = categoryFilters[status];
+    select.innerHTML = '<option value="all">All categories</option><option value="none">No category</option>' + categories.map(category =>
+      `<option value="${escapeHtml(category.id)}">${escapeHtml(category.name)}</option>`
+    ).join('');
+    categoryFilters[status] = [...select.options].some(option => option.value === current) ? current : 'all';
+    select.value = categoryFilters[status];
+  });
+}
+
+function openCategories() {
+  document.getElementById('categoriesStatus').textContent = '';
+  renderCategoriesList();
+  document.getElementById('categoriesOverlay').classList.remove('hidden');
+  setTimeout(() => document.getElementById('newCategoryName').focus(), 50);
+}
+
+function closeCategories() {
+  document.getElementById('categoriesOverlay').classList.add('hidden');
+}
+
+function renderCategoriesList() {
+  const list = document.getElementById('categoriesList');
+  if (!categories.length) {
+    list.innerHTML = '<p class="comments-empty">No categories yet.</p>';
+    return;
+  }
+  list.innerHTML = '';
+  categories.forEach(category => {
+    const row = document.createElement('div');
+    row.className = 'category-row';
+    row.innerHTML = `<input type="text" value="${escapeHtml(category.name)}" maxlength="80" aria-label="Category name"><button class="btn btn-secondary btn-sm save-category">Save</button><button class="btn btn-danger btn-sm delete-category">Delete</button>`;
+    row.querySelector('.save-category').addEventListener('click', () => renameCategory(category.id, row.querySelector('input').value));
+    row.querySelector('.delete-category').addEventListener('click', () => removeCategory(category));
+    list.appendChild(row);
+  });
+}
+
+async function addCategory(event) {
+  event.preventDefault();
+  const input = document.getElementById('newCategoryName');
+  await mutateCategories(() => window.api.categories.create(input.value));
+  input.value = '';
+  input.focus();
+}
+
+async function renameCategory(id, name) {
+  await mutateCategories(() => window.api.categories.update(id, name));
+}
+
+async function removeCategory(category) {
+  if (!confirm(`Delete category “${category.name}”? Tasks in it will become uncategorized.`)) return;
+  await mutateCategories(() => window.api.categories.delete(category.id));
+}
+
+async function mutateCategories(action) {
+  const status = document.getElementById('categoriesStatus');
+  try {
+    await action();
+    await Promise.all([loadCategories(), loadTasks()]);
+    renderCategoryOptions();
+    renderCategoriesList();
+    renderBoard();
+    status.textContent = '';
+  } catch (error) {
+    status.textContent = error.message.includes('UNIQUE') ? 'A category with that name already exists.' : error.message;
   }
 }
 
@@ -725,5 +826,6 @@ function handleKeyboardShortcut(event) {
     if (!document.getElementById('modalOverlay').classList.contains('hidden')) closeModal();
     else if (!document.getElementById('archiveOverlay').classList.contains('hidden')) closeArchive();
     else if (!document.getElementById('settingsOverlay').classList.contains('hidden')) closeSettings();
+    else if (!document.getElementById('categoriesOverlay').classList.contains('hidden')) closeCategories();
   }
 }

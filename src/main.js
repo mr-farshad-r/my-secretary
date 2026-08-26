@@ -1,9 +1,39 @@
-const { app, BrowserWindow, ipcMain, shell, net } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, net, Notification } = require('electron');
 const path = require('path');
 const db = require('./database');
 
 let mainWindow;
 const RELEASES_URL = 'https://github.com/mr-farshad-r/my-secretary/releases';
+let deadlineTimer;
+
+function localIsoDate(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function checkTomorrowDeadlines() {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const dueTasks = db.getTasksDueOn(localIsoDate(tomorrow));
+  if (!dueTasks.length || !Notification.isSupported()) return;
+  const names = dueTasks.slice(0, 4).map(task => task.title).join(', ');
+  const extra = dueTasks.length > 4 ? ` and ${dueTasks.length - 4} more` : '';
+  new Notification({
+    title: `${dueTasks.length} ${dueTasks.length === 1 ? 'task is' : 'tasks are'} due tomorrow`,
+    body: `${names}${extra}`,
+  }).show();
+}
+
+function scheduleDeadlineCheck() {
+  clearTimeout(deadlineTimer);
+  const now = new Date();
+  const next = new Date(now);
+  next.setHours(11, 0, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  deadlineTimer = setTimeout(() => {
+    checkTomorrowDeadlines();
+    scheduleDeadlineCheck();
+  }, next.getTime() - now.getTime());
+}
 
 async function checkForUpdate() {
   const response = await net.fetch('https://api.github.com/repos/mr-farshad-r/my-secretary/releases/latest', {
@@ -61,6 +91,10 @@ app.whenReady().then(() => {
   ipcMain.handle('comments:getAll', (_e, taskId) => db.getComments(taskId));
   ipcMain.handle('comments:add', (_e, taskId, body) => db.addComment(taskId, body));
   ipcMain.handle('comments:delete', (_e, taskId, commentId) => db.deleteComment(taskId, commentId));
+  ipcMain.handle('categories:getAll', () => db.getAllCategories());
+  ipcMain.handle('categories:create', (_e, name) => db.createCategory(name));
+  ipcMain.handle('categories:update', (_e, id, name) => db.updateCategory(id, name));
+  ipcMain.handle('categories:delete', (_e, id) => db.deleteCategory(id));
   ipcMain.handle('settings:get', () => ({
     openAtLogin: app.getLoginItemSettings().openAtLogin,
   }));
@@ -85,6 +119,7 @@ app.whenReady().then(() => {
   });
 
   createWindow();
+  scheduleDeadlineCheck();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

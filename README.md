@@ -24,7 +24,9 @@ My Secretary is a lightweight desktop task manager with a Kanban-style board. It
 - Manual **Save draft** and **Revert draft** actions
 - One-click archiving of all completed tasks
 - Archive viewer with individual **Restore to Done** actions
-- Shamsi deadline input with automatic Gregorian date conversion
+- Optional Shamsi deadlines with automatic Gregorian date conversion
+- Daily 11:00 native notifications for active tasks due the next day while the app is open
+- Optional task categories with category management and per-column filtering
 - Markdown task descriptions with formatting and preview
 - Custom fields for additional task information
 - Creation and update timestamps

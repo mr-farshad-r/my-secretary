@@ -26,6 +26,12 @@ function initDb() {
   db.pragma('foreign_keys = ON');
 
   db.exec(`
+    CREATE TABLE IF NOT EXISTS categories (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
@@ -35,10 +41,12 @@ function initDb() {
       priority TEXT NOT NULL DEFAULT 'medium',
       shamsi_date TEXT,
       miladi_date TEXT,
+      category_id TEXT,
       custom_fields TEXT DEFAULT '{}',
       sort_order INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
     );
 
     CREATE TABLE IF NOT EXISTS task_drafts (
@@ -60,6 +68,9 @@ function initDb() {
     CREATE INDEX IF NOT EXISTS task_comments_task_id
     ON task_comments(task_id, created_at DESC);
 
+    CREATE INDEX IF NOT EXISTS tasks_deadline
+    ON tasks(miladi_date, column_status);
+
     CREATE TRIGGER IF NOT EXISTS tasks_updated_at
     AFTER UPDATE ON tasks
     FOR EACH ROW
@@ -75,6 +86,9 @@ function initDb() {
   }
   if (!taskColumns.includes('priority')) {
     db.exec("ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'");
+  }
+  if (!taskColumns.includes('category_id')) {
+    db.exec('ALTER TABLE tasks ADD COLUMN category_id TEXT REFERENCES categories(id) ON DELETE SET NULL');
   }
 
   // Keep the task badge independent from its Kanban column.
@@ -97,8 +111,8 @@ function createTask(task) {
   const shamsiDate = task.shamsi_date || null;
   const miladiDate = task.miladi_date || shamsiToMiladi(shamsiDate);
   const stmt = getDb().prepare(`
-    INSERT INTO tasks (id, title, description, status, column_status, priority, shamsi_date, miladi_date, custom_fields, sort_order)
-    VALUES (@id, @title, @description, @status, @column_status, @priority, @shamsi_date, @miladi_date, @custom_fields, @sort_order)
+    INSERT INTO tasks (id, title, description, status, column_status, priority, shamsi_date, miladi_date, category_id, custom_fields, sort_order)
+    VALUES (@id, @title, @description, @status, @column_status, @priority, @shamsi_date, @miladi_date, @category_id, @custom_fields, @sort_order)
   `);
   stmt.run({
     id,
@@ -109,6 +123,7 @@ function createTask(task) {
     priority: task.priority || 'medium',
     shamsi_date: shamsiDate,
     miladi_date: miladiDate,
+    category_id: task.category_id || null,
     custom_fields: JSON.stringify(task.custom_fields || {}),
     sort_order: task.sort_order || Date.now(),
   });
@@ -130,7 +145,7 @@ function getAllTasks() {
 function updateTask(id, updates) {
   const fields = [];
   const values = { id };
-  const allowed = ['title', 'description', 'status', 'column_status', 'priority', 'shamsi_date', 'miladi_date', 'custom_fields', 'sort_order'];
+  const allowed = ['title', 'description', 'status', 'column_status', 'priority', 'shamsi_date', 'miladi_date', 'category_id', 'custom_fields', 'sort_order'];
 
   // If shamsi_date is being updated, recompute miladi_date automatically
   if (updates.shamsi_date !== undefined && updates.miladi_date === undefined) {
@@ -140,7 +155,9 @@ function updateTask(id, updates) {
   for (const key of allowed) {
     if (updates[key] !== undefined) {
       fields.push(`${key} = @${key}`);
-      values[key] = key === 'custom_fields' ? JSON.stringify(updates[key]) : updates[key];
+      values[key] = key === 'custom_fields'
+        ? JSON.stringify(updates[key])
+        : (['shamsi_date', 'miladi_date', 'category_id'].includes(key) && !updates[key] ? null : updates[key]);
     }
   }
   if (fields.length === 0) return getTask(id);
@@ -210,6 +227,40 @@ function deleteComment(taskId, commentId) {
   return result.changes > 0;
 }
 
+function getAllCategories() {
+  return getDb().prepare('SELECT * FROM categories ORDER BY name COLLATE NOCASE ASC').all();
+}
+
+function createCategory(name) {
+  const trimmedName = String(name || '').trim();
+  if (!trimmedName) throw new Error('Category name cannot be empty');
+  const id = require('crypto').randomUUID();
+  getDb().prepare('INSERT INTO categories (id, name) VALUES (?, ?)').run(id, trimmedName);
+  return getDb().prepare('SELECT * FROM categories WHERE id = ?').get(id);
+}
+
+function updateCategory(id, name) {
+  const trimmedName = String(name || '').trim();
+  if (!trimmedName) throw new Error('Category name cannot be empty');
+  getDb().prepare('UPDATE categories SET name = ? WHERE id = ?').run(trimmedName, id);
+  return getDb().prepare('SELECT * FROM categories WHERE id = ?').get(id);
+}
+
+function deleteCategory(id) {
+  return getDb().prepare('DELETE FROM categories WHERE id = ?').run(id).changes > 0;
+}
+
+function getTasksDueOn(miladiDate) {
+  return getDb().prepare(`
+    SELECT tasks.*, categories.name AS category_name
+    FROM tasks LEFT JOIN categories ON categories.id = tasks.category_id
+    WHERE tasks.miladi_date = ?
+      AND tasks.column_status NOT IN ('done', 'archived')
+      AND tasks.status != 'canceled'
+    ORDER BY tasks.title COLLATE NOCASE
+  `).all(miladiDate);
+}
+
 module.exports = {
   initDb,
   createTask,
@@ -224,4 +275,9 @@ module.exports = {
   getComments,
   addComment,
   deleteComment,
+  getAllCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  getTasksDueOn,
 };
