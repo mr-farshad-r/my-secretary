@@ -186,14 +186,14 @@ body:has(.update-banner:not(.hidden)) #board { height: calc(100vh - 125px); padd
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 8px;
-  height: 160px;
-  flex: 0 0 160px;
-  padding: 12px 14px;
+  min-height: 148px;
+  flex: 0 0 auto;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 12px;
   cursor: grab;
-  transition: border-color 0.15s, transform 0.1s;
+  transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
   min-width: 0;
   overflow: hidden;
 }
@@ -211,9 +211,10 @@ body:has(.update-banner:not(.hidden)) #board { height: calc(100vh - 125px); padd
   font-size: 14px;
   font-weight: 600;
   margin: 0;
-  line-height: 1.4;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
-.task-card-heading { display: flex; align-items: flex-start; gap: 8px; }
+.task-card-heading { display: flex; align-items: flex-start; gap: 12px; }
 .task-card-heading .task-card-title { flex: 1; min-width: 0; }
 .task-card-chips { display: flex; flex: 0 0 auto; gap: 4px; align-items: center; }
 .status-chip { flex: 0 0 auto; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 800; letter-spacing: .4px; }
@@ -226,35 +227,36 @@ body:has(.update-banner:not(.hidden)) #board { height: calc(100vh - 125px); padd
 .priority-medium { color: var(--warning); background: rgba(255,212,59,.12); }
 .priority-low { color: var(--text-dim); background: rgba(139,143,163,.12); }
 
-.task-card-date {
+.task-card-meta {
   font-size: 11px;
   color: var(--text-dim);
-  display: flex;
-  gap: 10px;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(96px, auto) minmax(0, 1fr);
+  gap: 6px 8px;
+  align-items: stretch;
 }
 
-.task-card-date .date-chip {
+.task-card-meta .date-chip {
   background: var(--surface-3);
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 6px 9px;
+  border-radius: 6px;
+  min-width: 0;
+  line-height: 1.35;
 }
-.task-card-date .date-chip:first-child { color: var(--text); }
-.category-chip { color: var(--primary); background: rgba(108,140,255,.12); padding: 2px 8px; border-radius: 4px; font-weight: 600; }
-.secondary-date { opacity: .72; }
+.task-card-meta .date-chip:first-of-type { color: var(--text); }
+.category-chip { color: var(--primary); background: rgba(108,140,255,.12); padding: 6px 9px; border-radius: 6px; font-weight: 700; overflow-wrap: anywhere; }
+.secondary-date { opacity: .72; grid-column: 2; }
 .remaining-days { color: var(--success); font-weight: 600; }
 .remaining-days.overdue { color: var(--danger); }
 
-.task-card-badges {
+.task-card-footer {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 0;
+  align-items: center;
+  margin-top: auto;
   min-width: 0;
-  overflow: hidden;
 }
 
-.task-card-badges .field-count-badge {
+.task-card-footer .field-count-badge {
   font-size: 10px;
   background: var(--surface-3);
   color: var(--text-dim);
@@ -360,6 +362,14 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
 }
 .form-row > div { flex: 1 1 110px; }
 .form-row label { margin-top: 0; }
+.task-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+}
+.task-meta-grid > div { min-width: 0; }
+.task-meta-grid > div:nth-child(4),
+.task-meta-grid > div:nth-child(5) { grid-column: span 1; }
 
 /* ─── Markdown Editor ─────────────────────────────── */
 .md-editor-wrapper {
@@ -527,12 +537,17 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
 
 /* ─── Settings ───────────────────────────────────── */
 .settings-modal { width: 480px; }
-.settings-content { padding: 24px; }
+.settings-content { padding: 24px; display: flex; flex-direction: column; gap: 10px; }
 .checkbox-setting { margin: 0; padding: 14px; display: flex; align-items: flex-start; gap: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; text-transform: none; letter-spacing: 0; }
 .checkbox-setting input { width: 17px; height: 17px; margin-top: 2px; accent-color: var(--primary); }
 .checkbox-setting span { display: flex; flex-direction: column; gap: 5px; }
 .checkbox-setting strong { color: var(--text); font-size: 14px; }
 .checkbox-setting small { color: var(--text-dim); font-size: 12px; font-weight: 400; }
+.settings-action { padding: 14px; display: flex; align-items: center; gap: 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; }
+.settings-action > span { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.settings-action strong { color: var(--text); font-size: 14px; }
+.settings-action small { color: var(--text-dim); font-size: 12px; }
+.settings-action .btn { flex: 0 0 auto; }
 .settings-status { min-height: 16px; margin-top: 10px; color: var(--text-dim); font-size: 11px; }
 .shortcut-help { margin-top: 16px; padding: 14px; display: flex; flex-direction: column; gap: 9px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; font-size: 12px; color: var(--text-dim); }
 .shortcut-help strong { color: var(--text); font-size: 13px; }
@@ -550,6 +565,23 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
 /* ─── Utilities ───────────────────────────────────── */
 .hidden { display: none !important; }
 
+body:not(.reduce-motion) .task-card { animation: card-in 220ms ease-out both; }
+body:not(.reduce-motion) .modal-overlay:not(.hidden) { animation: overlay-in 160ms ease-out both; }
+body:not(.reduce-motion) .modal-overlay:not(.hidden) .modal { animation: modal-in 200ms cubic-bezier(.2,.8,.2,1) both; }
+body:not(.reduce-motion) .badge,
+body:not(.reduce-motion) .status-chip,
+body:not(.reduce-motion) .priority-chip { transition: transform 160ms ease, background-color 160ms ease; }
+body:not(.reduce-motion) .task-card:hover .status-chip,
+body:not(.reduce-motion) .task-card:hover .priority-chip { transform: translateY(-1px); }
+
+@keyframes card-in { from { opacity: 0; transform: translateY(5px) scale(.99); } }
+@keyframes overlay-in { from { opacity: 0; } }
+@keyframes modal-in { from { opacity: 0; transform: translateY(8px) scale(.985); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -560,4 +592,5 @@ textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
   #board { padding: 14px; gap: 12px; }
   header { padding-inline: 18px; }
   .column { min-width: 260px; }
+  .task-meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

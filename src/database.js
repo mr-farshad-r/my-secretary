@@ -261,6 +261,62 @@ function getTasksDueOn(miladiDate) {
   `).all(miladiDate);
 }
 
+function exportAllData() {
+  const database = getDb();
+  return database.transaction(() => ({
+    tasks: getAllTasks(),
+    categories: database.prepare('SELECT * FROM categories ORDER BY created_at ASC').all(),
+    comments: database.prepare('SELECT * FROM task_comments ORDER BY created_at ASC, rowid ASC').all(),
+    drafts: database.prepare('SELECT * FROM task_drafts ORDER BY updated_at ASC').all().map(draft => ({
+      ...draft,
+      data: JSON.parse(draft.data || '{}'),
+    })),
+  }))();
+}
+
+function importAllData(data) {
+  const entities = ['tasks', 'categories', 'comments', 'drafts'];
+  if (!data || entities.some(entity => !Array.isArray(data[entity]))) {
+    throw new Error('Backup data is incomplete');
+  }
+
+  const database = getDb();
+  return database.transaction(() => {
+    database.prepare('DELETE FROM task_comments').run();
+    database.prepare('DELETE FROM task_drafts').run();
+    database.prepare('DELETE FROM tasks').run();
+    database.prepare('DELETE FROM categories').run();
+
+    const insertCategory = database.prepare(`
+      INSERT INTO categories (id, name, created_at) VALUES (@id, @name, @created_at)
+    `);
+    const insertTask = database.prepare(`
+      INSERT INTO tasks (id, title, description, status, column_status, priority, shamsi_date, miladi_date, category_id, custom_fields, sort_order, created_at, updated_at)
+      VALUES (@id, @title, @description, @status, @column_status, @priority, @shamsi_date, @miladi_date, @category_id, @custom_fields, @sort_order, @created_at, @updated_at)
+    `);
+    const insertComment = database.prepare(`
+      INSERT INTO task_comments (id, task_id, body, shamsi_created_at, created_at)
+      VALUES (@id, @task_id, @body, @shamsi_created_at, @created_at)
+    `);
+    const insertDraft = database.prepare(`
+      INSERT INTO task_drafts (task_id, data, updated_at) VALUES (@task_id, @data, @updated_at)
+    `);
+
+    data.categories.forEach(category => insertCategory.run(category));
+    data.tasks.forEach(task => insertTask.run({
+      ...task,
+      custom_fields: JSON.stringify(task.custom_fields || {}),
+    }));
+    data.comments.forEach(comment => insertComment.run(comment));
+    data.drafts.forEach(draft => insertDraft.run({
+      ...draft,
+      data: JSON.stringify(draft.data || {}),
+    }));
+
+    return Object.fromEntries(entities.map(entity => [entity, data[entity].length]));
+  })();
+}
+
 module.exports = {
   initDb,
   createTask,
@@ -280,4 +336,6 @@ module.exports = {
   updateCategory,
   deleteCategory,
   getTasksDueOn,
+  exportAllData,
+  importAllData,
 };

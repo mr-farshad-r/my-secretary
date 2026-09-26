@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain, shell, net, Notification } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, net, Notification } = require('electron');
+const fs = require('fs/promises');
 const path = require('path');
 const db = require('./database');
 
@@ -101,6 +102,56 @@ app.whenReady().then(() => {
   ipcMain.handle('settings:setOpenAtLogin', (_e, enabled) => {
     app.setLoginItemSettings({ openAtLogin: Boolean(enabled) });
     return { openAtLogin: app.getLoginItemSettings().openAtLogin };
+  });
+  ipcMain.handle('settings:exportAll', async () => {
+    const date = localIsoDate(new Date());
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export all My Secretary data',
+      defaultPath: `my-secretary-backup-${date}.json`,
+      filters: [{ name: 'JSON backup', extensions: ['json'] }],
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+
+    const backup = {
+      format: 'my-secretary-backup',
+      version: 1,
+      appVersion: app.getVersion(),
+      exportedAt: new Date().toISOString(),
+      data: db.exportAllData(),
+    };
+    await fs.writeFile(result.filePath, JSON.stringify(backup, null, 2), 'utf8');
+    return { canceled: false, filePath: result.filePath };
+  });
+  ipcMain.handle('settings:importAll', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Import My Secretary backup',
+      properties: ['openFile'],
+      filters: [{ name: 'JSON backup', extensions: ['json'] }],
+    });
+    if (result.canceled || !result.filePaths[0]) return { canceled: true };
+
+    const filePath = result.filePaths[0];
+    const stats = await fs.stat(filePath);
+    if (stats.size > 50 * 1024 * 1024) throw new Error('Backup file is larger than 50 MB');
+
+    const backup = JSON.parse(await fs.readFile(filePath, 'utf8'));
+    if (backup?.format !== 'my-secretary-backup' || backup?.version !== 1) {
+      throw new Error('This is not a supported My Secretary backup');
+    }
+
+    const confirmation = await dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      title: 'Replace current data?',
+      message: 'Importing this backup will replace all current data.',
+      detail: 'Tasks, categories, comments, and drafts currently in the app will be removed.',
+      buttons: ['Cancel', 'Replace and import'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    });
+    if (confirmation.response !== 1) return { canceled: true };
+
+    return { canceled: false, counts: db.importAllData(backup.data) };
   });
   ipcMain.handle('app:checkForUpdate', () => checkForUpdate());
   ipcMain.handle('app:openRelease', (_e, releaseUrl) => {

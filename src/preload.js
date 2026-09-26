@@ -31,5 +31,7 @@ contextBridge.exposeInMainWorld('api', {
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
     setOpenAtLogin: (enabled) => ipcRenderer.invoke('settings:setOpenAtLogin', enabled),
+    exportAll: () => ipcRenderer.invoke('settings:exportAll'),
+    importAll: () => ipcRenderer.invoke('settings:importAll'),
   },
 });

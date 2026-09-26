@@ -74,7 +74,7 @@
         <label>Title <span class="required">*</span></label>
         <input type="text" id="taskTitle" placeholder="Task title..." required>
 
-        <div class="form-row">
+        <div class="form-row task-meta-grid">
           <div>
             <label>Status</label>
             <select id="taskStatus">
@@ -97,7 +97,7 @@
           </div>
           <div>
             <label>Deadline (Shamsi, optional)</label>
-            <input type="text" id="taskShamsi" placeholder="No deadline">
+            <input type="text" id="taskShamsi" placeholder="1405/07/29" inputmode="numeric">
           </div>
           <div>
             <label>Miladi Date</label>
@@ -176,6 +176,18 @@
           <input type="checkbox" id="openAtStartup">
           <span><strong>Open at startup</strong><small>Start My Secretary when you log in to your computer.</small></span>
         </label>
+        <label class="checkbox-setting">
+          <input type="checkbox" id="motionEnabled" checked>
+          <span><strong>Interface animations</strong><small>Use subtle motion for cards, dialogs, and state changes.</small></span>
+        </label>
+        <div class="settings-action">
+          <span><strong>Export all data</strong><small>Save tasks, categories, comments, and drafts as a JSON backup.</small></span>
+          <button type="button" id="exportAllBtn" class="btn btn-secondary">Export</button>
+        </div>
+        <div class="settings-action">
+          <span><strong>Import backup</strong><small>Replace current data with tasks and related entities from an exported backup.</small></span>
+          <button type="button" id="importAllBtn" class="btn btn-secondary">Import</button>
+        </div>
         <p id="settingsStatus" class="settings-status" aria-live="polite"></p>
         <div class="shortcut-help">
           <strong>Keyboard shortcuts</strong>

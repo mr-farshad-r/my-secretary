@@ -9,6 +9,7 @@ let draftTimer = null;
 let draftDirty = false;
 let newTaskColumn = 'todo';
 let dragPlaceholder = null;
+const MOTION_SETTING_KEY = 'my-secretary:motion-enabled';
 
 const STATUS_COLUMNS = ['todo', 'wip', 'done'];
 const STATUS_LABELS = { pending: 'PENDING', wip: 'WIP', canceled: 'CANCELED' };
@@ -80,6 +81,7 @@ function isWebLink(value) {
 
 // ─── Init ───────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  applyMotionSetting(localStorage.getItem(MOTION_SETTING_KEY) !== 'false');
   await Promise.all([loadTasks(), loadCategories()]);
   renderCategoryOptions();
   renderBoard();
@@ -163,8 +165,8 @@ function createTaskCard(task) {
 
   card.innerHTML = `
     <div class="task-card-heading"><div class="task-card-title">${escapeHtml(task.title)}</div><div class="task-card-chips"><span class="priority-chip priority-${escapeHtml(task.priority || 'medium')}">${escapeHtml((task.priority || 'medium').toUpperCase())}</span><span class="status-chip status-${escapeHtml(task.status)}">${escapeHtml(STATUS_LABELS[task.status] || task.status)}</span></div></div>
-    ${(dateChips.length || category) ? `<div class="task-card-date">${category ? `<span class="category-chip">${escapeHtml(category.name)}</span>` : ''}${dateChips.join('')}</div>` : ''}
-    ${customFieldCount ? `<div class="task-card-badges"><span class="field-count-badge" title="${customFieldCount} custom ${customFieldCount === 1 ? 'field' : 'fields'}">${customFieldCount} custom ${customFieldCount === 1 ? 'field' : 'fields'}</span></div>` : ''}
+    ${(dateChips.length || category) ? `<div class="task-card-meta">${category ? `<span class="category-chip">${escapeHtml(category.name)}</span>` : ''}${dateChips.join('')}</div>` : ''}
+    ${customFieldCount ? `<div class="task-card-footer"><span class="field-count-badge" title="${customFieldCount} custom ${customFieldCount === 1 ? 'field' : 'fields'}">${customFieldCount} custom ${customFieldCount === 1 ? 'field' : 'fields'}</span></div>` : ''}
   `;
 
   card.addEventListener('click', () => openModal(task));
@@ -260,6 +262,9 @@ function setupEventListeners() {
     if (e.target.id === 'settingsOverlay') closeSettings();
   });
   document.getElementById('openAtStartup').addEventListener('change', saveStartupSetting);
+  document.getElementById('motionEnabled').addEventListener('change', saveMotionSetting);
+  document.getElementById('exportAllBtn').addEventListener('click', exportAllData);
+  document.getElementById('importAllBtn').addEventListener('click', importAllData);
   document.getElementById('addTaskBtn').addEventListener('click', () => openModal());
   document.getElementById('archiveDoneBtn').addEventListener('click', archiveDoneTasks);
   document.getElementById('viewArchiveBtn').addEventListener('click', openArchive);
@@ -355,11 +360,7 @@ async function openModal(task = null, presetColumn = 'todo') {
     }
   }
 
-  // Reset preview
-  isPreviewMode = false;
-  document.getElementById('mdPreview').classList.add('hidden');
-  document.getElementById('taskDescription').classList.remove('hidden');
-  document.getElementById('previewBtn').classList.remove('active');
+  setPreviewMode(false);
 
   document.getElementById('modalOverlay').classList.remove('hidden');
   const commentsSection = document.getElementById('commentsSection');
@@ -375,6 +376,7 @@ async function openModal(task = null, presetColumn = 'todo') {
       setDraftStatus(`Draft from ${formatTimestamp(draft.updated_at)}`);
     }
   }
+  setPreviewMode(Boolean(document.getElementById('taskDescription').value.trim()));
   setTimeout(() => document.getElementById('taskTitle').focus(), 50);
 }
 
@@ -520,8 +522,58 @@ async function openSettings() {
   try {
     const settings = await window.api.settings.get();
     document.getElementById('openAtStartup').checked = Boolean(settings.openAtLogin);
+    document.getElementById('motionEnabled').checked = !document.body.classList.contains('reduce-motion');
   } catch (error) {
     status.textContent = `Could not load setting: ${error.message}`;
+  }
+}
+
+function applyMotionSetting(enabled) {
+  document.body.classList.toggle('reduce-motion', !enabled);
+}
+
+function saveMotionSetting(event) {
+  const enabled = event.target.checked;
+  localStorage.setItem(MOTION_SETTING_KEY, String(enabled));
+  applyMotionSetting(enabled);
+}
+
+async function exportAllData() {
+  const button = document.getElementById('exportAllBtn');
+  const status = document.getElementById('settingsStatus');
+  button.disabled = true;
+  button.textContent = 'Exporting…';
+  status.textContent = '';
+  try {
+    const result = await window.api.settings.exportAll();
+    status.textContent = result.canceled ? '' : 'Backup exported successfully.';
+  } catch (error) {
+    status.textContent = `Export failed: ${error.message}`;
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Export';
+  }
+}
+
+async function importAllData() {
+  const button = document.getElementById('importAllBtn');
+  const status = document.getElementById('settingsStatus');
+  button.disabled = true;
+  button.textContent = 'Importing…';
+  status.textContent = '';
+  try {
+    const result = await window.api.settings.importAll();
+    if (result.canceled) return;
+    await Promise.all([loadTasks(), loadCategories()]);
+    renderCategoryOptions();
+    renderBoard();
+    const { tasks: taskCount, categories: categoryCount } = result.counts;
+    status.textContent = `Imported ${taskCount} tasks and ${categoryCount} categories.`;
+  } catch (error) {
+    status.textContent = `Import failed: ${error.message}`;
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Import';
   }
 }
 
@@ -762,7 +814,11 @@ function setupMarkdownToolbar() {
 }
 
 function togglePreview() {
-  isPreviewMode = !isPreviewMode;
+  setPreviewMode(!isPreviewMode);
+}
+
+function setPreviewMode(enabled) {
+  isPreviewMode = enabled;
   const ta = document.getElementById('taskDescription');
   const preview = document.getElementById('mdPreview');
   const btn = document.getElementById('previewBtn');
