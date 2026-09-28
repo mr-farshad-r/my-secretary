@@ -34,4 +34,8 @@ contextBridge.exposeInMainWorld('api', {
     exportAll: () => ipcRenderer.invoke('settings:exportAll'),
     importAll: () => ipcRenderer.invoke('settings:importAll'),
   },
+  calendar: {
+    fetchIcs: (calendarUrl) => ipcRenderer.invoke('calendar:fetchIcs', calendarUrl),
+    notify: (title, time) => ipcRenderer.invoke('calendar:notify', title, time),
+  },
 });

@@ -2,6 +2,7 @@ const { app, BrowserWindow, dialog, ipcMain, shell, net, Notification } = requir
 const fs = require('fs/promises');
 const path = require('path');
 const db = require('./database');
+const { parseIcs } = require('./ics-parser');
 
 let mainWindow;
 const RELEASES_URL = 'https://github.com/mr-farshad-r/my-secretary/releases';
@@ -167,6 +168,20 @@ app.whenReady().then(() => {
       throw new Error('Only HTTP and HTTPS links can be opened');
     }
     return shell.openExternal(url.toString());
+  });
+  ipcMain.handle('calendar:fetchIcs', async (_e, calendarUrl) => {
+    const url = new URL(calendarUrl);
+    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Calendar URL must use HTTP or HTTPS');
+    const response = await net.fetch(url.toString());
+    if (!response.ok) throw new Error(`Calendar request failed (${response.status})`);
+    const text = await response.text();
+    if (text.length > 5 * 1024 * 1024) throw new Error('Calendar feed is larger than 5 MB');
+    return parseIcs(text);
+  });
+  ipcMain.handle('calendar:notify', (_e, title, time) => {
+    if (!Notification.isSupported()) return false;
+    new Notification({ title, body: `Starts at ${time} (in 5 minutes)` }).show();
+    return true;
   });
 
   createWindow();

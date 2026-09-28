@@ -41,6 +41,7 @@ function initDb() {
       priority TEXT NOT NULL DEFAULT 'medium',
       shamsi_date TEXT,
       miladi_date TEXT,
+      deadline_time TEXT,
       category_id TEXT,
       custom_fields TEXT DEFAULT '{}',
       sort_order INTEGER DEFAULT 0,
@@ -90,6 +91,9 @@ function initDb() {
   if (!taskColumns.includes('category_id')) {
     db.exec('ALTER TABLE tasks ADD COLUMN category_id TEXT REFERENCES categories(id) ON DELETE SET NULL');
   }
+  if (!taskColumns.includes('deadline_time')) {
+    db.exec('ALTER TABLE tasks ADD COLUMN deadline_time TEXT');
+  }
 
   // Keep the task badge independent from its Kanban column.
   db.prepare("UPDATE tasks SET status = 'pending' WHERE status = 'todo'").run();
@@ -111,8 +115,8 @@ function createTask(task) {
   const shamsiDate = task.shamsi_date || null;
   const miladiDate = task.miladi_date || shamsiToMiladi(shamsiDate);
   const stmt = getDb().prepare(`
-    INSERT INTO tasks (id, title, description, status, column_status, priority, shamsi_date, miladi_date, category_id, custom_fields, sort_order)
-    VALUES (@id, @title, @description, @status, @column_status, @priority, @shamsi_date, @miladi_date, @category_id, @custom_fields, @sort_order)
+    INSERT INTO tasks (id, title, description, status, column_status, priority, shamsi_date, miladi_date, deadline_time, category_id, custom_fields, sort_order)
+    VALUES (@id, @title, @description, @status, @column_status, @priority, @shamsi_date, @miladi_date, @deadline_time, @category_id, @custom_fields, @sort_order)
   `);
   stmt.run({
     id,
@@ -123,6 +127,7 @@ function createTask(task) {
     priority: task.priority || 'medium',
     shamsi_date: shamsiDate,
     miladi_date: miladiDate,
+    deadline_time: task.deadline_time || null,
     category_id: task.category_id || null,
     custom_fields: JSON.stringify(task.custom_fields || {}),
     sort_order: task.sort_order || Date.now(),
@@ -145,7 +150,7 @@ function getAllTasks() {
 function updateTask(id, updates) {
   const fields = [];
   const values = { id };
-  const allowed = ['title', 'description', 'status', 'column_status', 'priority', 'shamsi_date', 'miladi_date', 'category_id', 'custom_fields', 'sort_order'];
+  const allowed = ['title', 'description', 'status', 'column_status', 'priority', 'shamsi_date', 'miladi_date', 'deadline_time', 'category_id', 'custom_fields', 'sort_order'];
 
   // If shamsi_date is being updated, recompute miladi_date automatically
   if (updates.shamsi_date !== undefined && updates.miladi_date === undefined) {
@@ -157,7 +162,7 @@ function updateTask(id, updates) {
       fields.push(`${key} = @${key}`);
       values[key] = key === 'custom_fields'
         ? JSON.stringify(updates[key])
-        : (['shamsi_date', 'miladi_date', 'category_id'].includes(key) && !updates[key] ? null : updates[key]);
+        : (['shamsi_date', 'miladi_date', 'deadline_time', 'category_id'].includes(key) && !updates[key] ? null : updates[key]);
     }
   }
   if (fields.length === 0) return getTask(id);
@@ -291,8 +296,8 @@ function importAllData(data) {
       INSERT INTO categories (id, name, created_at) VALUES (@id, @name, @created_at)
     `);
     const insertTask = database.prepare(`
-      INSERT INTO tasks (id, title, description, status, column_status, priority, shamsi_date, miladi_date, category_id, custom_fields, sort_order, created_at, updated_at)
-      VALUES (@id, @title, @description, @status, @column_status, @priority, @shamsi_date, @miladi_date, @category_id, @custom_fields, @sort_order, @created_at, @updated_at)
+      INSERT INTO tasks (id, title, description, status, column_status, priority, shamsi_date, miladi_date, deadline_time, category_id, custom_fields, sort_order, created_at, updated_at)
+      VALUES (@id, @title, @description, @status, @column_status, @priority, @shamsi_date, @miladi_date, @deadline_time, @category_id, @custom_fields, @sort_order, @created_at, @updated_at)
     `);
     const insertComment = database.prepare(`
       INSERT INTO task_comments (id, task_id, body, shamsi_created_at, created_at)
@@ -305,6 +310,7 @@ function importAllData(data) {
     data.categories.forEach(category => insertCategory.run(category));
     data.tasks.forEach(task => insertTask.run({
       ...task,
+      deadline_time: task.deadline_time || null,
       custom_fields: JSON.stringify(task.custom_fields || {}),
     }));
     data.comments.forEach(comment => insertComment.run(comment));

@@ -12,6 +12,11 @@
       <h1>📋 My Secretary</h1>
     </div>
     <div class="header-right">
+      <span id="currentDate" class="current-date"></span>
+      <div class="view-switch" role="group" aria-label="View">
+        <button id="boardViewBtn" class="btn btn-secondary active">Board</button>
+        <button id="calendarViewBtn" class="btn btn-ghost">Calendar</button>
+      </div>
       <button id="categoriesBtn" class="btn btn-ghost" aria-label="Manage categories">Categories</button>
       <button id="settingsBtn" class="btn btn-ghost" aria-label="Open settings">Settings</button>
       <button id="viewArchiveBtn" class="btn btn-ghost">Archive <span id="archiveCount" class="button-count">0</span></button>
@@ -61,6 +66,18 @@
     </div>
   </main>
 
+  <main id="calendar" class="calendar-view hidden">
+    <div class="calendar-toolbar">
+      <button id="previousMonthBtn" class="btn btn-secondary" aria-label="Previous month">‹</button>
+      <div><h2 id="calendarMonth"></h2><span id="calendarMiladiRange"></span></div>
+      <button id="todayBtn" class="btn btn-ghost">Today</button>
+      <button id="refreshCalendarBtn" class="btn btn-ghost">Refresh</button>
+      <button id="nextMonthBtn" class="btn btn-secondary" aria-label="Next month">›</button>
+    </div>
+    <div class="calendar-weekdays" aria-hidden="true"><span>Sat</span><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span></div>
+    <div id="calendarGrid" class="calendar-grid"></div>
+  </main>
+
   <!-- Task Modal -->
   <div id="modalOverlay" class="modal-overlay hidden">
     <div class="modal">
@@ -102,6 +119,10 @@
           <div>
             <label>Miladi Date</label>
             <span id="taskMiladiLabel" class="readonly-label">—</span>
+          </div>
+          <div>
+            <label>Time (optional)</label>
+            <input type="text" id="taskDeadlineTime" placeholder="HH:MM" inputmode="numeric" pattern="(?:[01]\d|2[0-3]):[0-5]\d">
           </div>
         </div>
 
@@ -165,6 +186,24 @@
     </section>
   </div>
 
+  <div id="calendarEventOverlay" class="modal-overlay hidden">
+    <section class="modal event-modal" aria-labelledby="calendarEventTitle">
+      <div class="modal-header">
+        <div><h2 id="calendarEventTitle"></h2><p class="modal-subtitle">Calendar event</p></div>
+        <button id="closeCalendarEvent" class="btn-icon" aria-label="Close event details">✕</button>
+      </div>
+      <div class="event-details">
+        <dl>
+          <div><dt>Shamsi</dt><dd id="calendarEventShamsi"></dd></div>
+          <div><dt>Miladi</dt><dd id="calendarEventMiladi"></dd></div>
+          <div><dt>Time</dt><dd id="calendarEventTime"></dd></div>
+          <div id="calendarEventLocationRow"><dt>Location</dt><dd id="calendarEventLocation"></dd></div>
+        </dl>
+        <div id="calendarEventDescription" class="event-description" dir="auto"></div>
+      </div>
+    </section>
+  </div>
+
   <div id="settingsOverlay" class="modal-overlay hidden">
     <section class="modal settings-modal" aria-labelledby="settingsTitle">
       <div class="modal-header">
@@ -176,10 +215,19 @@
           <input type="checkbox" id="openAtStartup">
           <span><strong>Open at startup</strong><small>Start My Secretary when you log in to your computer.</small></span>
         </label>
+        <div class="settings-action calendar-setting">
+          <span><strong>ICS calendar link</strong><small>Optional feed shown in Calendar and refreshed every 5 minutes.</small></span>
+          <input type="url" id="icsUrl" placeholder="https://example.com/calendar.ics">
+          <button type="button" id="saveIcsBtn" class="btn btn-secondary">Save</button>
+        </div>
         <label class="checkbox-setting">
           <input type="checkbox" id="motionEnabled" checked>
           <span><strong>Interface animations</strong><small>Use subtle motion for cards, dialogs, and state changes.</small></span>
         </label>
+        <div class="settings-action">
+          <span><strong>Check for updates</strong><small>Check GitHub for a newer My Secretary release.</small></span>
+          <button type="button" id="checkUpdatesBtn" class="btn btn-secondary">Check</button>
+        </div>
         <div class="settings-action">
           <span><strong>Export all data</strong><small>Save tasks, categories, comments, and drafts as a JSON backup.</small></span>
           <button type="button" id="exportAllBtn" class="btn btn-secondary">Export</button>

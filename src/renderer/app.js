@@ -10,6 +10,10 @@ let draftDirty = false;
 let newTaskColumn = 'todo';
 let dragPlaceholder = null;
 const MOTION_SETTING_KEY = 'my-secretary:motion-enabled';
+const ICS_URL_KEY = 'my-secretary:ics-url';
+let calendarMonth = null;
+let icsEvents = [];
+const notifiedEvents = new Set();
 
 const STATUS_COLUMNS = ['todo', 'wip', 'done'];
 const STATUS_LABELS = { pending: 'PENDING', wip: 'WIP', canceled: 'CANCELED' };
@@ -85,9 +89,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   await Promise.all([loadTasks(), loadCategories()]);
   renderCategoryOptions();
   renderBoard();
+  showToday();
+  goToCurrentMonth();
   setupEventListeners();
   setupDragAndDrop();
   checkForUpdates();
+  refreshIcs();
+  setInterval(refreshIcs, 5 * 60 * 1000);
+  setInterval(showToday, 60 * 1000);
+  setInterval(checkEventReminders, 30 * 1000);
 });
 
 // ─── Data ───────────────────────────────────────────
@@ -110,6 +120,7 @@ async function saveTask(data) {
       category_id: data.category_id,
       shamsi_date: data.shamsi_date,
       miladi_date: data.miladi_date,
+      deadline_time: data.deadline_time,
       custom_fields: data.custom_fields,
     });
   }
@@ -122,6 +133,7 @@ async function saveTask(data) {
     category_id: data.category_id,
     shamsi_date: data.shamsi_date,
     miladi_date: data.miladi_date,
+    deadline_time: data.deadline_time,
     custom_fields: data.custom_fields,
   });
 }
@@ -143,6 +155,132 @@ function renderBoard() {
   }
   const archived = tasks.filter(t => t.column_status === 'archived').length;
   document.getElementById('archiveCount').textContent = archived;
+  if (calendarMonth) renderCalendar();
+}
+
+function showToday() {
+  document.getElementById('currentDate').textContent = `${todayShamsi()} · ${todayMiladi()}`;
+  document.getElementById('taskShamsi').placeholder = todayShamsi();
+}
+
+function goToCurrentMonth() {
+  const [year, month] = todayShamsi().split('/').map(Number);
+  calendarMonth = { year, month };
+  renderCalendar();
+}
+
+function changeCalendarMonth(offset) {
+  calendarMonth.month += offset;
+  if (calendarMonth.month > 12) { calendarMonth.year++; calendarMonth.month = 1; }
+  if (calendarMonth.month < 1) { calendarMonth.year--; calendarMonth.month = 12; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const { year, month } = calendarMonth;
+  const days = jalaali.jalaaliMonthLength(year, month);
+  const firstMiladi = shamsiToMiladi(`${year}/${month}/1`);
+  const lastMiladi = shamsiToMiladi(`${year}/${month}/${days}`);
+  const first = new Date(`${firstMiladi}T00:00:00`);
+  const leadingDays = (first.getDay() + 1) % 7;
+  const cells = Math.ceil((leadingDays + days) / 7) * 7;
+  const start = new Date(first);
+  start.setDate(start.getDate() - leadingDays);
+
+  document.getElementById('calendarMonth').textContent = `${year}/${String(month).padStart(2, '0')}`;
+  document.getElementById('calendarMiladiRange').textContent = `${firstMiladi} — ${lastMiladi}`;
+  const grid = document.getElementById('calendarGrid');
+  grid.innerHTML = '';
+
+  for (let index = 0; index < cells; index++) {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    const miladi = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const shamsi = miladiToShamsi(miladi);
+    const [jy, jm, jd] = shamsi.split('/').map(Number);
+    const day = document.createElement('section');
+    day.className = `calendar-day${jm !== month || jy !== year ? ' outside' : ''}${miladi === todayMiladi() ? ' today' : ''}`;
+    day.innerHTML = `<div class="calendar-date"><strong>${jd}</strong><small>${miladi}</small></div>`;
+    tasks.filter(task => task.miladi_date === miladi && task.column_status !== 'archived').forEach(task => {
+      const item = document.createElement('button');
+      item.className = 'calendar-event';
+      item.textContent = `${task.deadline_time ? `${task.deadline_time} ` : ''}${task.title}`;
+      item.title = task.title;
+      item.addEventListener('click', () => openModal(task));
+      day.appendChild(item);
+    });
+    icsEvents.filter(event => event.date === miladi).forEach(event => {
+      const item = document.createElement('button');
+      item.className = 'calendar-event ics';
+      item.textContent = `${event.time ? `${event.time} ` : ''}${event.title}`;
+      item.title = event.title;
+      item.addEventListener('click', () => openCalendarEvent(event));
+      day.appendChild(item);
+    });
+    grid.appendChild(day);
+  }
+}
+
+async function refreshIcs() {
+  const url = localStorage.getItem(ICS_URL_KEY);
+  if (!url) { icsEvents = []; renderCalendar(); return; }
+  try {
+    icsEvents = await window.api.calendar.fetchIcs(url);
+    renderCalendar();
+    checkEventReminders();
+  } catch (error) {
+    console.info('Calendar feed unavailable:', error.message);
+  }
+}
+
+function checkEventReminders() {
+  const now = Date.now();
+  const upcoming = icsEvents.filter(event => event.startAt).map(event => ({
+    id: event.id || `${event.date}:${event.time}:${event.title}`,
+    title: event.title,
+    time: event.time,
+    startAt: new Date(event.startAt).getTime(),
+  }));
+  tasks.filter(task => task.miladi_date && task.deadline_time && task.column_status !== 'archived').forEach(task => {
+    upcoming.push({
+      id: `task:${task.id}:${task.miladi_date}:${task.deadline_time}`,
+      title: task.title,
+      time: task.deadline_time,
+      startAt: new Date(`${task.miladi_date}T${task.deadline_time}:00`).getTime(),
+    });
+  });
+  upcoming.forEach(event => {
+    const remaining = event.startAt - now;
+    if (remaining > 0 && remaining <= 5 * 60 * 1000 && !notifiedEvents.has(event.id)) {
+      notifiedEvents.add(event.id);
+      window.api.calendar.notify(event.title, event.time);
+    }
+  });
+}
+
+function setView(view) {
+  const calendar = view === 'calendar';
+  document.getElementById('board').classList.toggle('hidden', calendar);
+  document.getElementById('calendar').classList.toggle('hidden', !calendar);
+  document.getElementById('boardViewBtn').classList.toggle('active', !calendar);
+  document.getElementById('calendarViewBtn').classList.toggle('active', calendar);
+  if (calendar) renderCalendar();
+}
+
+function openCalendarEvent(event) {
+  document.getElementById('calendarEventTitle').textContent = event.title;
+  document.getElementById('calendarEventShamsi').textContent = miladiToShamsi(event.date);
+  document.getElementById('calendarEventMiladi').textContent = event.date;
+  document.getElementById('calendarEventTime').textContent = event.time ? `${event.time}${event.endTime ? `–${event.endTime}` : ''}` : 'All day';
+  document.getElementById('calendarEventLocation').textContent = event.location || '';
+  document.getElementById('calendarEventLocationRow').classList.toggle('hidden', !event.location);
+  const description = document.getElementById('calendarEventDescription');
+  description.textContent = event.description || 'No description.';
+  document.getElementById('calendarEventOverlay').classList.remove('hidden');
+}
+
+function closeCalendarEvent() {
+  document.getElementById('calendarEventOverlay').classList.add('hidden');
 }
 
 function createTaskCard(task) {
@@ -154,7 +292,7 @@ function createTaskCard(task) {
   const dateChips = [];
   if (task.shamsi_date) {
     const remaining = remainingDaysLabel(task.miladi_date || shamsiToMiladi(task.shamsi_date));
-    dateChips.push(`<span class="date-chip" title="Shamsi deadline">Deadline ${escapeHtml(task.shamsi_date)}${remaining ? ` <span class="remaining-days ${remaining.includes('overdue') ? 'overdue' : ''}">· ${escapeHtml(remaining)}</span>` : ''}</span>`);
+    dateChips.push(`<span class="date-chip" title="Shamsi deadline">Deadline ${escapeHtml(task.shamsi_date)}${task.deadline_time ? ` ${escapeHtml(task.deadline_time)}` : ''}${remaining ? ` <span class="remaining-days ${remaining.includes('overdue') ? 'overdue' : ''}">· ${escapeHtml(remaining)}</span>` : ''}</span>`);
   }
   if (task.miladi_date) dateChips.push(`<span class="date-chip secondary-date" title="Gregorian deadline">${escapeHtml(task.miladi_date)}</span>`);
 
@@ -241,6 +379,16 @@ function getDragAfterElement(list, y) {
 
 // ─── Modal ──────────────────────────────────────────
 function setupEventListeners() {
+  document.getElementById('boardViewBtn').addEventListener('click', () => setView('board'));
+  document.getElementById('calendarViewBtn').addEventListener('click', () => setView('calendar'));
+  document.getElementById('previousMonthBtn').addEventListener('click', () => changeCalendarMonth(-1));
+  document.getElementById('nextMonthBtn').addEventListener('click', () => changeCalendarMonth(1));
+  document.getElementById('todayBtn').addEventListener('click', goToCurrentMonth);
+  document.getElementById('refreshCalendarBtn').addEventListener('click', refreshIcs);
+  document.getElementById('closeCalendarEvent').addEventListener('click', closeCalendarEvent);
+  document.getElementById('calendarEventOverlay').addEventListener('click', event => {
+    if (event.target.id === 'calendarEventOverlay') closeCalendarEvent();
+  });
   document.getElementById('dismissUpdateBtn').addEventListener('click', () => {
     document.getElementById('updateBanner').classList.add('hidden');
   });
@@ -265,6 +413,8 @@ function setupEventListeners() {
   document.getElementById('motionEnabled').addEventListener('change', saveMotionSetting);
   document.getElementById('exportAllBtn').addEventListener('click', exportAllData);
   document.getElementById('importAllBtn').addEventListener('click', importAllData);
+  document.getElementById('saveIcsBtn').addEventListener('click', saveIcsUrl);
+  document.getElementById('checkUpdatesBtn').addEventListener('click', () => checkForUpdates(true));
   document.getElementById('addTaskBtn').addEventListener('click', () => openModal());
   document.getElementById('archiveDoneBtn').addEventListener('click', archiveDoneTasks);
   document.getElementById('viewArchiveBtn').addEventListener('click', openArchive);
@@ -297,15 +447,32 @@ function setupEventListeners() {
   setupMarkdownToolbar();
 }
 
-async function checkForUpdates() {
+async function checkForUpdates(manual = false) {
+  const button = document.getElementById('checkUpdatesBtn');
+  const status = document.getElementById('settingsStatus');
+  if (manual) {
+    button.disabled = true;
+    button.textContent = 'Checking…';
+    status.textContent = 'Checking for updates…';
+  }
   try {
     const update = await window.api.app.checkForUpdate();
-    if (!isNewerVersion(update.latestVersion, update.currentVersion)) return;
+    if (!isNewerVersion(update.latestVersion, update.currentVersion)) {
+      if (manual) status.textContent = `You are up to date (version ${update.currentVersion}).`;
+      return;
+    }
     document.getElementById('updateMessage').textContent = `Version ${update.latestVersion} is ready (you have ${update.currentVersion}).`;
     document.getElementById('updateNowBtn').onclick = () => window.api.app.openRelease(update.releaseUrl);
     document.getElementById('updateBanner').classList.remove('hidden');
+    if (manual) status.textContent = `Version ${update.latestVersion} is available.`;
   } catch (error) {
     console.info('Update check unavailable:', error.message);
+    if (manual) status.textContent = `Update check failed: ${error.message}`;
+  } finally {
+    if (manual) {
+      button.disabled = false;
+      button.textContent = 'Check';
+    }
   }
 }
 
@@ -339,6 +506,7 @@ async function openModal(task = null, presetColumn = 'todo') {
   setDraftStatus('', true);
 
   document.getElementById('taskShamsi').value = task?.shamsi_date || '';
+  document.getElementById('taskDeadlineTime').value = task?.deadline_time || '';
   updateMiladiLabel();
 
   // Timestamps: show for existing tasks
@@ -395,6 +563,7 @@ function populateForm(data) {
   document.getElementById('taskPriority').value = data.priority || 'medium';
   document.getElementById('taskCategory').value = data.category_id || '';
   document.getElementById('taskShamsi').value = data.shamsi_date || '';
+  document.getElementById('taskDeadlineTime').value = data.deadline_time || '';
   updateMiladiLabel();
   const container = document.getElementById('customFieldsContainer');
   container.innerHTML = '';
@@ -418,6 +587,7 @@ function collectFormData() {
     description: document.getElementById('taskDescription').value,
     shamsi_date: shamsi || null,
     miladi_date: miladi,
+    deadline_time: document.getElementById('taskDeadlineTime').value || null,
     category_id: document.getElementById('taskCategory').value || null,
     custom_fields: customFields,
     status: document.getElementById('taskStatus').value || 'pending',
@@ -519,6 +689,7 @@ async function openSettings() {
   const status = document.getElementById('settingsStatus');
   status.textContent = '';
   document.getElementById('settingsOverlay').classList.remove('hidden');
+  document.getElementById('icsUrl').value = localStorage.getItem(ICS_URL_KEY) || '';
   try {
     const settings = await window.api.settings.get();
     document.getElementById('openAtStartup').checked = Boolean(settings.openAtLogin);
@@ -526,6 +697,16 @@ async function openSettings() {
   } catch (error) {
     status.textContent = `Could not load setting: ${error.message}`;
   }
+}
+
+async function saveIcsUrl() {
+  const input = document.getElementById('icsUrl');
+  const url = input.value.trim();
+  const status = document.getElementById('settingsStatus');
+  if (url && !isWebLink(url)) { status.textContent = 'Enter a valid HTTP or HTTPS calendar URL.'; return; }
+  localStorage.setItem(ICS_URL_KEY, url);
+  status.textContent = url ? 'Calendar link saved.' : 'Calendar link removed.';
+  await refreshIcs();
 }
 
 function applyMotionSetting(enabled) {
@@ -880,6 +1061,7 @@ function handleKeyboardShortcut(event) {
     document.getElementById('taskForm').requestSubmit();
   } else if (event.key === 'Escape') {
     if (!document.getElementById('modalOverlay').classList.contains('hidden')) closeModal();
+    else if (!document.getElementById('calendarEventOverlay').classList.contains('hidden')) closeCalendarEvent();
     else if (!document.getElementById('archiveOverlay').classList.contains('hidden')) closeArchive();
     else if (!document.getElementById('settingsOverlay').classList.contains('hidden')) closeSettings();
     else if (!document.getElementById('categoriesOverlay').classList.contains('hidden')) closeCategories();
