@@ -1,12 +1,16 @@
 # My Secretary
 
-My Secretary is a lightweight desktop task manager with a Kanban-style board. It runs locally on macOS and Windows and stores your tasks on your own computer.
+My Secretary is a lightweight desktop task manager with Kanban and Shamsi calendar views. It runs locally on macOS and Windows and stores your tasks on your own computer.
 
 ## Screenshots
 
 ### Kanban board
 
 ![My Secretary Kanban board](docs/screenshots/board.png)
+
+### Shamsi calendar
+
+![My Secretary Shamsi calendar with task deadlines](docs/screenshots/calendar.png)
 
 ### Task editor
 
@@ -24,14 +28,18 @@ My Secretary is a lightweight desktop task manager with a Kanban-style board. It
 - Manual **Save draft** and **Revert draft** actions
 - One-click archiving of all completed tasks
 - Archive viewer with individual **Restore to Done** actions
-- Optional Shamsi deadlines with automatic Gregorian date conversion
-- Full Shamsi calendar with secondary Gregorian dates, task deadlines, and an optional ICS feed refreshed every 5 minutes
-- Optional task times and native reminders five minutes before timed tasks and calendar events
+- Current Shamsi and Gregorian date in the app header
+- Optional Shamsi deadlines and task times with automatic Gregorian date conversion
+- Full Shamsi calendar with secondary Gregorian dates and task deadlines
+- Optional ICS calendar feed with automatic five-minute refresh and a manual **Refresh** action
+- Calendar event details with date, time, location, description, and automatic RTL layout for Persian descriptions
+- Native reminders five minutes before timed tasks and calendar events
 - Daily 11:00 native notifications for active tasks due the next day while the app is open
 - Optional task categories with category management and per-column filtering
 - Markdown task descriptions with formatting and preview
 - Custom fields for additional task information
 - Creation and update timestamps
+- Automatic startup update check plus a manual **Check for updates** action in Settings
 - Local SQLite storage—your task database is not included in releases or uploaded to this repository
 
 ## Download
