@@ -22,6 +22,7 @@ function checkTomorrowDeadlines() {
   new Notification({
     title: `${dueTasks.length} ${dueTasks.length === 1 ? 'task is' : 'tasks are'} due tomorrow`,
     body: `${names}${extra}`,
+    timeoutType: 'never',
   }).show();
 }
 
@@ -180,7 +181,7 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('calendar:notify', (_e, title, time) => {
     if (!Notification.isSupported()) return false;
-    new Notification({ title, body: `Starts at ${time} (in 5 minutes)` }).show();
+    new Notification({ title, body: `Starts at ${time} (in 5 minutes)`, timeoutType: 'never' }).show();
     return true;
   });
 
