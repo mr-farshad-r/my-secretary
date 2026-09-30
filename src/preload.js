@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('api', {
   },
   calendar: {
     fetchIcs: (calendarUrl) => ipcRenderer.invoke('calendar:fetchIcs', calendarUrl),
+    getContributions: () => ipcRenderer.invoke('calendar:getContributions'),
     notify: (title, time) => ipcRenderer.invoke('calendar:notify', title, time),
   },
 });

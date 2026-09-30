@@ -94,6 +94,7 @@ app.whenReady().then(() => {
   ipcMain.handle('comments:getAll', (_e, taskId) => db.getComments(taskId));
   ipcMain.handle('comments:add', (_e, taskId, body) => db.addComment(taskId, body));
   ipcMain.handle('comments:delete', (_e, taskId, commentId) => db.deleteComment(taskId, commentId));
+  ipcMain.handle('calendar:getContributions', () => db.getCommentContributions());
   ipcMain.handle('categories:getAll', () => db.getAllCategories());
   ipcMain.handle('categories:create', (_e, name) => db.createCategory(name));
   ipcMain.handle('categories:update', (_e, id, name) => db.updateCategory(id, name));

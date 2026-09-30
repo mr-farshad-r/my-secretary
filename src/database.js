@@ -232,6 +232,14 @@ function deleteComment(taskId, commentId) {
   return result.changes > 0;
 }
 
+function getCommentContributions() {
+  return getDb().prepare(`
+    SELECT date(created_at, 'localtime') AS date, COUNT(*) AS count
+    FROM task_comments
+    GROUP BY date(created_at, 'localtime')
+  `).all();
+}
+
 function getAllCategories() {
   return getDb().prepare('SELECT * FROM categories ORDER BY name COLLATE NOCASE ASC').all();
 }
@@ -337,6 +345,7 @@ module.exports = {
   getComments,
   addComment,
   deleteComment,
+  getCommentContributions,
   getAllCategories,
   createCategory,
   updateCategory,

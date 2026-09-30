@@ -13,6 +13,7 @@ const MOTION_SETTING_KEY = 'my-secretary:motion-enabled';
 const ICS_URL_KEY = 'my-secretary:ics-url';
 let calendarMonth = null;
 let icsEvents = [];
+let commentContributions = {};
 const notifiedEvents = new Set();
 
 const STATUS_COLUMNS = ['todo', 'wip', 'done'];
@@ -86,7 +87,7 @@ function isWebLink(value) {
 // ─── Init ───────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   applyMotionSetting(localStorage.getItem(MOTION_SETTING_KEY) !== 'false');
-  await Promise.all([loadTasks(), loadCategories()]);
+  await Promise.all([loadTasks(), loadCategories(), loadContributions()]);
   renderCategoryOptions();
   renderBoard();
   showToday();
@@ -107,6 +108,11 @@ async function loadTasks() {
 
 async function loadCategories() {
   categories = await window.api.categories.getAll();
+}
+
+async function loadContributions() {
+  const counts = await window.api.calendar.getContributions();
+  commentContributions = Object.fromEntries(counts.map(item => [item.date, item.count]));
 }
 
 async function saveTask(data) {
@@ -199,9 +205,14 @@ function renderCalendar() {
     const shamsi = miladiToShamsi(miladi);
     const [jy, jm, jd] = shamsi.split('/').map(Number);
     const day = document.createElement('section');
-    day.className = `calendar-day${jm !== month || jy !== year ? ' outside' : ''}${miladi === todayMiladi() ? ' today' : ''}`;
-    day.innerHTML = `<div class="calendar-date"><strong>${jd}</strong><small>${miladi}</small></div>`;
-    tasks.filter(task => task.miladi_date === miladi && task.column_status !== 'archived').forEach(task => {
+    const dayTasks = tasks.filter(task => task.miladi_date === miladi && task.column_status !== 'archived');
+    const dayEvents = icsEvents.filter(event => event.date === miladi);
+    const comments = commentContributions[miladi] || 0;
+    const contributions = dayTasks.length + dayEvents.length + comments;
+    const level = contributions ? Math.min(4, Math.ceil(contributions / 2)) : 0;
+    day.className = `calendar-day contribution-${level}${jm !== month || jy !== year ? ' outside' : ''}${miladi === todayMiladi() ? ' today' : ''}`;
+    day.innerHTML = `<div class="calendar-date" tabindex="0"><strong>${jd}</strong><small>${miladi}</small><span class="contribution-tooltip"><b>${contributions} ${contributions === 1 ? 'contribution' : 'contributions'}</b><span>${dayTasks.length} tasks · ${dayEvents.length} events · ${comments} comments</span></span></div>`;
+    dayTasks.forEach(task => {
       const item = document.createElement('button');
       item.className = 'calendar-event';
       item.textContent = `${task.deadline_time ? `${task.deadline_time} ` : ''}${task.title}`;
@@ -209,7 +220,7 @@ function renderCalendar() {
       item.addEventListener('click', () => openModal(task));
       day.appendChild(item);
     });
-    icsEvents.filter(event => event.date === miladi).forEach(event => {
+    dayEvents.forEach(event => {
       const item = document.createElement('button');
       item.className = 'calendar-event ics';
       item.textContent = `${event.time ? `${event.time} ` : ''}${event.title}`;
@@ -672,7 +683,8 @@ async function addComment() {
   try {
     await window.api.comments.add(editingTaskId, body);
     input.value = '';
-    await loadComments(editingTaskId);
+    await Promise.all([loadComments(editingTaskId), loadContributions()]);
+    renderCalendar();
   } finally {
     button.disabled = false;
   }
@@ -682,7 +694,8 @@ async function deleteComment(commentId) {
   if (!editingTaskId || !commentId) return;
   if (!confirm('Delete this comment?')) return;
   await window.api.comments.delete(editingTaskId, commentId);
-  await loadComments(editingTaskId);
+  await Promise.all([loadComments(editingTaskId), loadContributions()]);
+  renderCalendar();
 }
 
 async function openSettings() {
@@ -745,7 +758,7 @@ async function importAllData() {
   try {
     const result = await window.api.settings.importAll();
     if (result.canceled) return;
-    await Promise.all([loadTasks(), loadCategories()]);
+    await Promise.all([loadTasks(), loadCategories(), loadContributions()]);
     renderCategoryOptions();
     renderBoard();
     const { tasks: taskCount, categories: categoryCount } = result.counts;
