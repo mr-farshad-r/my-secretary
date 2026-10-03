@@ -147,3 +147,5 @@ The note saves automatically on this device. **Export Markdown** saves the origi
 Run the Note checks with `node_modules/.bin/electron tests/note.cjs`.
 
 For a link with a custom label, set a field to a plain URL (for example, `jira` = `https://example.com/issue`) and write `[Task]({{jira}})` in the note.
+
+**Copy Teams** copies formatted content and clickable links, with resolved custom fields and a readable plain-text fallback. Paste normally into the Teams message editor to keep formatting.

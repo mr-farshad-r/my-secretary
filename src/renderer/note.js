@@ -72,6 +72,29 @@ function renderNoteMarkdown(source) {
   return template.innerHTML;
 }
 
+function noteTeamsContent(source, direction) {
+  const content = document.createElement('div');
+  content.dir = direction === 'rtl' ? 'rtl' : 'ltr';
+  content.style.textAlign = 'start';
+  content.innerHTML = renderNoteMarkdown(source);
+  for (const cell of content.querySelectorAll('th, td')) {
+    cell.style.border = '1px solid #bbb';
+    cell.style.padding = '8px';
+  }
+  for (const table of content.querySelectorAll('table')) table.style.borderCollapse = 'collapse';
+  const html = content.outerHTML;
+  // Supply readable text, including link destinations, to plain-text paste targets.
+  for (const link of content.querySelectorAll('a[href]')) {
+    const href = link.getAttribute('href');
+    if (link.textContent !== href) link.append(` (${href})`);
+  }
+  for (const br of content.querySelectorAll('br')) br.replaceWith('\n');
+  for (const block of content.querySelectorAll('p, h1, h2, h3, h4, h5, h6, blockquote, pre, li, tr')) block.append('\n');
+  for (const cell of content.querySelectorAll('th, td')) cell.append('\t');
+  for (const checkbox of content.querySelectorAll('input[type="checkbox"]')) checkbox.replaceWith(checkbox.hasAttribute('checked') ? '[x] ' : '[ ] ');
+  return { html, text: content.textContent.replace(/\n{3,}/g, '\n\n').trim() };
+}
+
 function noteHtml(source, direction) {
   return `<!DOCTYPE html>\n<html lang="en" dir="${direction === 'rtl' ? 'rtl' : 'ltr'}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Note</title><style>body{max-width:960px;margin:40px auto;padding:24px;font:16px/1.7 system-ui;text-align:start}table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:8px}pre{direction:ltr;text-align:left;background:#f4f4f4;padding:16px;overflow:auto}img{max-width:100%}blockquote{border-inline-start:3px solid #888;padding-inline-start:16px}</style></head><body>${renderNoteMarkdown(source)}</body></html>`;
 }
@@ -282,6 +305,19 @@ document.addEventListener('DOMContentLoaded', () => {
       await navigator.clipboard.writeText(resolvedContent());
       status.textContent = 'Markdown copied to clipboard.';
     } catch { status.textContent = 'Could not copy Markdown. Try again or use Export Markdown.'; }
+    finally { button.disabled = false; }
+  });
+  document.getElementById('copyNoteTeams').addEventListener('click', async event => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      const content = noteTeamsContent(resolvedContent(), direction.value);
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([content.html], { type: 'text/html' }),
+        'text/plain': new Blob([content.text], { type: 'text/plain' }),
+      })]);
+      status.textContent = 'Copied for Teams. Paste normally to keep formatting.';
+    } catch { status.textContent = 'Could not copy for Teams. Try again or use Copy Markdown.'; }
     finally { button.disabled = false; }
   });
   renderFields();

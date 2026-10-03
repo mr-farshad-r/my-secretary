@@ -108,6 +108,24 @@ app.whenReady().then(async () => {
       copyButton.click(); await Promise.resolve();
       assert(document.getElementById('noteStatus').textContent.includes('Could not copy') && !copyButton.disabled, 'Copy failure feedback');
       navigator.clipboard.writeText = originalWrite;
+      const teamsContent = noteTeamsContent('Hi\\n\\n[This is a test link](https://google.com/ "https://google.com/")\\n\\nBye', 'rtl');
+      assert(teamsContent.html.includes('href="https://google.com/"') && teamsContent.html.includes('dir="rtl"'), 'Teams link and direction');
+      assert(teamsContent.text.includes('This is a test link (https://google.com/)') && teamsContent.text.includes('Hi') && teamsContent.text.includes('Bye'), 'Teams readable fallback');
+      const originalRichWrite = navigator.clipboard.write;
+      let teamsItems;
+      navigator.clipboard.write = async items => { teamsItems = items; };
+      const teamsButton = document.getElementById('copyNoteTeams');
+      teamsButton.click(); await Promise.resolve();
+      const teamsHtml = await (await teamsItems[0].getType('text/html')).text();
+      const teamsText = await (await teamsItems[0].getType('text/plain')).text();
+      assert(teamsHtml.includes('href="https://example.com/issue"') && !teamsHtml.includes('{{jira}}'), 'Teams clipboard resolves field links');
+      assert(teamsText.includes('Jira (https://example.com/issue)'), 'Teams plain clipboard contains URL');
+      assert(!teamsButton.disabled && document.getElementById('noteStatus').textContent.includes('Copied for Teams'), 'Teams success feedback');
+      navigator.clipboard.write = async () => { throw new Error('Clipboard unavailable'); };
+      teamsButton.click(); await Promise.resolve();
+      assert(!teamsButton.disabled && document.getElementById('noteStatus').textContent.includes('Could not copy for Teams'), 'Teams failure feedback');
+      navigator.clipboard.write = originalRichWrite;
+
 
       manager.value = 'daily'; manager.dispatchEvent(new Event('change'));
       const beforeDelete = editor.value;
