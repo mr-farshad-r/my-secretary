@@ -14,8 +14,9 @@
     <div class="header-right">
       <span id="currentDate" class="current-date"></span>
       <div class="view-switch" role="group" aria-label="View">
-        <button id="boardViewBtn" class="btn btn-secondary active">Board</button>
-        <button id="calendarViewBtn" class="btn btn-ghost">Calendar</button>
+        <button id="boardViewBtn" class="btn btn-ghost active" aria-pressed="true">Board</button>
+        <button id="calendarViewBtn" class="btn btn-ghost" aria-pressed="false">Calendar</button>
+        <button id="noteViewBtn" class="btn btn-ghost" aria-pressed="false">Note</button>
       </div>
       <button id="categoriesBtn" class="btn btn-ghost" aria-label="Manage categories">Categories</button>
       <button id="settingsBtn" class="btn btn-ghost" aria-label="Open settings">Settings</button>
@@ -76,6 +77,55 @@
     </div>
     <div class="calendar-weekdays" aria-hidden="true"><span>Sat</span><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span></div>
     <div id="calendarGrid" class="calendar-grid"></div>
+  </main>
+
+  <main id="note" class="note-view hidden">
+    <div class="note-toolbar">
+      <h2>Note</h2><span id="noteStatus" role="status">Saved locally</span>
+      <label>Direction <select id="noteDirection"><option value="ltr">LTR</option><option value="rtl">RTL</option></select></label>
+      <label>View <select id="noteLayout"><option value="split">Editor + preview</option><option value="edit">Editor</option><option value="preview">Preview</option></select></label>
+      <button id="exportNoteMarkdown" class="btn btn-secondary">Export Markdown</button>
+      <button id="exportNoteHtml" class="btn btn-secondary">Export HTML</button>
+    </div>
+    <div id="noteFormatting" class="note-toolbar">
+      <button class="btn btn-ghost" data-format="bold" aria-label="Bold"><b>B</b></button>
+      <button class="btn btn-ghost" data-format="italic" aria-label="Italic"><i>I</i></button>
+      <button class="btn btn-ghost" data-format="h1">H1</button><button class="btn btn-ghost" data-format="h2">H2</button>
+      <button class="btn btn-ghost" data-format="list">List</button><button class="btn btn-ghost" data-format="code">Code</button>
+      <button class="btn btn-ghost" data-format="link">Link</button>
+      <button class="btn btn-ghost" data-insert="- [ ] Task">Checklist</button>
+      <button class="btn btn-ghost" data-insert="> Quote">Quote</button>
+      <label>Template <select id="noteTemplate"><option value="meeting">Meeting notes</option><option value="daily">Daily journal</option><option value="project">Project plan</option></select></label>
+      <button id="insertNoteTemplate" class="btn btn-secondary">Insert template</button>
+      <details class="note-table-generator"><summary>Insert table</summary>
+        <form id="noteTableForm"><label>Rows <input id="noteRows" type="number" min="1" max="100" value="3" required></label>
+        <label>Columns <input id="noteColumns" type="number" min="1" max="20" value="3" required></label>
+        <button class="btn btn-primary" type="submit">Insert</button></form>
+      </details>
+    </div>
+    <details class="note-template-manager">
+      <summary>Manage templates</summary>
+      <form id="noteTemplateForm">
+        <div class="note-toolbar">
+          <label>Template <select id="manageNoteTemplate" aria-label="Template to edit"></select></label>
+          <button id="newNoteTemplate" type="button" class="btn btn-secondary">Add template</button>
+          <button id="deleteNoteTemplate" type="button" class="btn btn-danger">Delete template</button>
+        </div>
+        <label for="noteTemplateName">Name</label>
+        <input id="noteTemplateName" type="text" maxlength="80" required placeholder="Template name">
+        <label for="noteTemplateContent">Markdown content</label>
+        <textarea id="noteTemplateContent" required dir="auto" placeholder="Write your template in Markdown…"></textarea>
+        <div class="note-toolbar">
+          <button type="submit" class="btn btn-primary">Save template</button>
+          <span>Use {{date}} to insert today's date.</span>
+          <span id="noteTemplateStatus" role="status"></span>
+        </div>
+      </form>
+    </details>
+    <div id="noteWorkspace" class="note-workspace" data-layout="split">
+      <textarea id="noteEditor" aria-label="Note Markdown" placeholder="Write your note in Markdown…" spellcheck="true"></textarea>
+      <article id="notePreview" class="md-preview" aria-label="Note preview"></article>
+    </div>
   </main>
 
   <!-- Task Modal -->
@@ -267,5 +317,6 @@
   <script src="../jalaali.js"></script>
   <script src="../marked.min.js"></script>
   <script src="app.js"></script>
+  <script src="note.js"></script>
 </body>
 </html>

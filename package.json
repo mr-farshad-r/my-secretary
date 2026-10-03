@@ -1,6 +1,6 @@
 {
   "name": "my-secretary",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Self-hosted task manager with Kanban UI",
   "main": "src/main.js",
   "scripts": {
@@ -10,7 +10,8 @@
     "dist": "electron-builder --mac dmg --publish never",
     "dist:arm64": "electron-builder --mac dmg --arm64 --publish never",
     "dist:x64": "electron-builder --mac dmg --x64 --publish never",
-    "dist:win": "electron-builder --win nsis --x64 --publish never"
+    "dist:win": "electron-builder --win nsis --x64 --publish never",
+    "dist:linux": "electron-builder --linux AppImage tar.gz --x64 --publish never"
   },
   "build": {
     "appId": "com.snappay.mysecretary",
@@ -44,6 +45,12 @@
         { "x": 130, "y": 220 },
         { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
       ]
+    },
+    "linux": {
+      "target": ["AppImage", "tar.gz"],
+      "icon": "build/icon.png",
+      "category": "Office",
+      "artifactName": "${name}-${version}-linux-${arch}.${ext}"
     }
   },
   "author": "Snapp Pay Dev",

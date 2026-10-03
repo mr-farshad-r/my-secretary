@@ -1,6 +1,6 @@
 # My Secretary
 
-My Secretary is a lightweight desktop task manager with Kanban and Shamsi calendar views. It runs locally on macOS and Windows and stores your tasks on your own computer.
+My Secretary is a lightweight desktop task manager with Kanban and Shamsi calendar views. It runs locally on macOS, Windows, and Linux and stores your tasks on your own computer.
 
 ## Screenshots
 
@@ -48,6 +48,7 @@ Download the latest installer from the [GitHub Releases page](https://github.com
 
 - **Apple Silicon macOS:** download the ARM64 `.dmg`
 - **Windows 64-bit:** download the `.exe` installer
+- **Linux 64-bit (x64):** download the `.AppImage` or portable `.tar.gz` archive
 
 ## macOS installation
 
@@ -74,6 +75,17 @@ Then open the app again. This is a temporary workaround until signed and notariz
 1. Download the Windows `.exe` installer.
 2. Run the installer and choose the installation directory.
 3. If Windows SmartScreen appears, review the publisher information and continue only if you downloaded the installer from this repository.
+
+## Linux installation
+
+Download the Linux x64 `.AppImage`, make it executable in your file manager, and open it. From a terminal in the download directory:
+
+```bash
+chmod +x my-secretary-*-linux-x64.AppImage
+./my-secretary-*-linux-x64.AppImage
+```
+
+If your system does not support running AppImages, extract the portable `.tar.gz` archive and run `my-secretary` inside the extracted directory. Linux packages are built on Ubuntu 22.04; compatibility with other distributions has not yet been verified.
 
 ## Data and privacy
 
@@ -106,13 +118,14 @@ Build packages locally:
 ```bash
 npm run dist:arm64
 npm run dist:win
+npm run dist:linux
 ```
 
-The Windows installer should normally be built on Windows.
+Build the Windows installer on Windows and Linux packages on Linux so the SQLite native dependency matches the target platform.
 
 ## Releases
 
-GitHub Actions builds macOS Apple Silicon and Windows x64 packages. Pushing a version tag that matches the version in `package.json` creates a public GitHub Release with both installers and automatically generated release notes.
+GitHub Actions builds macOS Apple Silicon, Windows x64, and Linux x64 packages. Pushing a version tag that matches the version in `package.json` creates a public GitHub Release with all platform packages and automatically generated release notes.
 
 Example:
 
@@ -124,3 +137,11 @@ git push origin v1.1.0
 ## License
 
 MIT
+
+### Note
+
+Use **Board / Calendar / Note** to open a single full-page Markdown note. Choose editor, preview, or both; use the formatting toolbar, insert tables with custom rows and columns, and insert meeting, journal, or project templates at the cursor. Expand **Manage templates** to add, edit, or delete templates, including the defaults. Templates save locally; use `{{date}}` in their content to insert today’s date. LTR and RTL apply to both the editor and preview.
+
+The note saves automatically on this device. **Export Markdown** saves the original source; **Export HTML** saves a standalone formatted document with the selected direction. The note is stored separately from the task database and is not included in task JSON backups; use the note export buttons to back it up.
+
+Run the Note checks with `node_modules/.bin/electron tests/note.cjs`.

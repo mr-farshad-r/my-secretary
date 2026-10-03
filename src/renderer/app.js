@@ -270,12 +270,13 @@ function checkEventReminders() {
 }
 
 function setView(view) {
-  const calendar = view === 'calendar';
-  document.getElementById('board').classList.toggle('hidden', calendar);
-  document.getElementById('calendar').classList.toggle('hidden', !calendar);
-  document.getElementById('boardViewBtn').classList.toggle('active', !calendar);
-  document.getElementById('calendarViewBtn').classList.toggle('active', calendar);
-  if (calendar) renderCalendar();
+  for (const name of ['board', 'calendar', 'note']) {
+    document.getElementById(name).classList.toggle('hidden', view !== name);
+    const button = document.getElementById(`${name}ViewBtn`);
+    button.classList.toggle('active', view === name);
+    button.setAttribute('aria-pressed', String(view === name));
+  }
+  if (view === 'calendar') renderCalendar();
 }
 
 function openCalendarEvent(event) {
