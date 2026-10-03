@@ -81,8 +81,8 @@ Then open the app again. This is a temporary workaround until signed and notariz
 Download the Linux x64 `.AppImage`, make it executable in your file manager, and open it. From a terminal in the download directory:
 
 ```bash
-chmod +x my-secretary-*-linux-x64.AppImage
-./my-secretary-*-linux-x64.AppImage
+chmod +x my-secretary-*-linux-x86_64.AppImage
+./my-secretary-*-linux-x86_64.AppImage
 ```
 
 If your system does not support running AppImages, extract the portable `.tar.gz` archive and run `my-secretary` inside the extracted directory. Linux packages are built on Ubuntu 22.04; compatibility with other distributions has not yet been verified.
