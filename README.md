@@ -140,8 +140,10 @@ MIT
 
 ### Note
 
-Use **Board / Calendar / Note** to open a single full-page Markdown note. Choose editor, preview, or both; use the formatting toolbar, insert tables with custom rows and columns, and insert meeting, journal, or project templates at the cursor. Expand **Manage templates** to add, edit, or delete templates, including the defaults. Templates save locally; use `{{date}}` in their content to insert today’s date. LTR and RTL apply to both the editor and preview.
+Use **Board / Calendar / Note** to open a single full-page Markdown note. Choose editor, preview, or both; use the formatting toolbar, insert tables with custom rows and columns, and insert meeting, journal, or project templates at the cursor. Open **Manage templates** to add, edit, or delete templates, including the defaults. Templates save locally. Dynamic placeholders `{{date}}`, `{{jDate}}`, `{{time}}`, `{{jFullDatetime}}`, and `{{fullDateTime}}` fill when you insert a template; `jDate` and `jFullDatetime` use the Jalali calendar. Add custom fields with keys and optional default values in the template modal, then fill their values above the note editor. Static placeholders such as `{{jira}}` stay in the Markdown editor and resolve in preview, HTML export, and Markdown export. Field values support Markdown and save with the note. Reusing a key shares its current value across the note. LTR and RTL apply to both the editor and preview.
 
 The note saves automatically on this device. **Export Markdown** saves the original source; **Export HTML** saves a standalone formatted document with the selected direction. The note is stored separately from the task database and is not included in task JSON backups; use the note export buttons to back it up.
 
 Run the Note checks with `node_modules/.bin/electron tests/note.cjs`.
+
+For a link with a custom label, set a field to a plain URL (for example, `jira` = `https://example.com/issue`) and write `[Task]({{jira}})` in the note.

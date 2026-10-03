@@ -63,6 +63,52 @@ app.whenReady().then(async () => {
       editor.setSelectionRange(editor.value.length, editor.value.length);
       document.getElementById('insertNoteTemplate').click();
       assert(editor.value.startsWith(beforeInsert) && editor.value.includes('# Edited') && !editor.value.includes('{{date}}'), 'Custom template insertion and dates');
+      const dynamic = noteDynamicValues(new Date(2026, 9, 3, 13, 28, 40));
+      assert(dynamic.jDate === '1405/07/11' && dynamic.jFullDatetime.includes(dynamic.jDate), 'Jalali date and datetime');
+      for (const key of ['date', 'jDate', 'time', 'jFullDatetime', 'fullDateTime']) assert(typeof dynamic[key] === 'string' && dynamic[key], 'Dynamic value ' + key);
+      assert(resolveNoteFields('{{jira}} {{missing}}', { jira: 'https://example.com' }) === 'https://example.com {{missing}}', 'Static and unknown placeholders');
+      assert(resolveNoteFields('{{jira}}', { jira: '{{date}}' }) === '{{date}}', 'Field values do not expand recursively');
+      let invalid = false; try { validateNoteFields([{ key: 'date', value: '' }]); } catch { invalid = true; }
+      assert(invalid, 'Dynamic keys reserved');
+      invalid = false; try { validateNoteFields([{ key: 'jira', value: '' }, { key: 'jira', value: '' }]); } catch { invalid = true; }
+      assert(invalid, 'Duplicate field keys rejected');
+      document.getElementById('manageNoteTemplatesBtn').click();
+      const dialog = document.getElementById('noteTemplateDialog');
+      assert(dialog.open && dialog.matches(':modal'), 'Template manager is modal');
+      document.getElementById('addNoteTemplateField').click();
+      document.querySelector('.template-field-key').value = 'jira';
+      document.querySelector('.template-field-value').value = 'https://example.com/default';
+      content.value = '# Edited {{jira}} {{jDate}} {{time}} {{jFullDatetime}} {{fullDateTime}}';
+      form.dispatchEvent(new Event('submit', { cancelable: true }));
+      assert(document.querySelector('.template-field-key').value === 'jira', 'Template fields retained after save');
+      document.getElementById('closeNoteTemplates').click();
+      assert(!dialog.open, 'Modal closes');
+      editor.setSelectionRange(editor.value.length, editor.value.length);
+      document.getElementById('insertNoteTemplate').click();
+      const jira = document.querySelector('#noteFields input[data-key="jira"]');
+      assert(jira && jira.value === 'https://example.com/default', 'Default field displayed above editor');
+      jira.value = '[Jira](https://example.com/issue)'; jira.dispatchEvent(new Event('input'));
+      assert(editor.value.includes('{{jira}}') && !preview.textContent.includes('{{jira}}'), 'Editor retains placeholder; preview resolves it');
+      assert(preview.querySelector('a[href="https://example.com/issue"]'), 'Markdown field renders as a link');
+      const renderedExports = [];
+      URL.createObjectURL = blob => { renderedExports.push(blob); return originalCreate(blob); };
+      HTMLAnchorElement.prototype.click = function () {};
+      document.getElementById('exportNoteMarkdown').click(); document.getElementById('exportNoteHtml').click();
+      assert((await renderedExports[0].text()).includes('[Jira](https://example.com/issue)') && !(await renderedExports[0].text()).includes('{{jira}}'), 'Markdown export resolves fields');
+      assert((await renderedExports[1].text()).includes('href="https://example.com/issue"'), 'HTML export resolves fields');
+      URL.createObjectURL = originalCreate; HTMLAnchorElement.prototype.click = originalClick;
+      let copied = null;
+      const originalWrite = navigator.clipboard.writeText;
+      navigator.clipboard.writeText = async text => { copied = text; };
+      const copyButton = document.getElementById('copyNoteMarkdown');
+      copyButton.click(); await Promise.resolve();
+      assert(copied === await renderedExports[0].text(), 'Clipboard matches resolved Markdown export');
+      assert(document.getElementById('noteStatus').textContent.includes('copied') && !copyButton.disabled, 'Copy success feedback');
+      navigator.clipboard.writeText = async () => { throw new Error('Clipboard unavailable'); };
+      copyButton.click(); await Promise.resolve();
+      assert(document.getElementById('noteStatus').textContent.includes('Could not copy') && !copyButton.disabled, 'Copy failure feedback');
+      navigator.clipboard.writeText = originalWrite;
+
       manager.value = 'daily'; manager.dispatchEvent(new Event('change'));
       const beforeDelete = editor.value;
       document.getElementById('deleteNoteTemplate').click();
@@ -75,6 +121,10 @@ app.whenReady().then(async () => {
     await window.webContents.executeJavaScript(`(() => {
       const picker = document.getElementById('noteTemplate');
       if (![...picker.options].some(option => option.textContent === 'Edited template') || [...picker.options].some(option => option.value === 'daily')) throw new Error('Template changes did not survive reload');
+      const jira = document.querySelector('#noteFields input[data-key="jira"]');
+      if (!jira || jira.value !== '[Jira](https://example.com/issue)' || !document.getElementById('notePreview').querySelector('a[href="https://example.com/issue"]')) throw new Error('Note field values did not survive reload');
+      const edited = JSON.parse(localStorage.getItem(NOTE_TEMPLATES_KEY)).find(item => item.name === 'Edited template');
+      if (edited.fields[0].key !== 'jira') throw new Error('Template field definitions did not persist');
       const count = document.getElementById('manageNoteTemplate').options.length;
       for (let i = 0; i < count; i++) document.getElementById('deleteNoteTemplate').click();
       if (!document.getElementById('insertNoteTemplate').disabled || !document.getElementById('deleteNoteTemplate').disabled) throw new Error('Empty template state');

@@ -86,6 +86,7 @@
       <label>View <select id="noteLayout"><option value="split">Editor + preview</option><option value="edit">Editor</option><option value="preview">Preview</option></select></label>
       <button id="exportNoteMarkdown" class="btn btn-secondary">Export Markdown</button>
       <button id="exportNoteHtml" class="btn btn-secondary">Export HTML</button>
+      <button id="copyNoteMarkdown" class="btn btn-secondary">Copy Markdown</button>
     </div>
     <div id="noteFormatting" class="note-toolbar">
       <button class="btn btn-ghost" data-format="bold" aria-label="Bold"><b>B</b></button>
@@ -97,14 +98,22 @@
       <button class="btn btn-ghost" data-insert="> Quote">Quote</button>
       <label>Template <select id="noteTemplate"><option value="meeting">Meeting notes</option><option value="daily">Daily journal</option><option value="project">Project plan</option></select></label>
       <button id="insertNoteTemplate" class="btn btn-secondary">Insert template</button>
+      <button id="manageNoteTemplatesBtn" class="btn btn-secondary">Manage templates</button>
       <details class="note-table-generator"><summary>Insert table</summary>
         <form id="noteTableForm"><label>Rows <input id="noteRows" type="number" min="1" max="100" value="3" required></label>
         <label>Columns <input id="noteColumns" type="number" min="1" max="20" value="3" required></label>
         <button class="btn btn-primary" type="submit">Insert</button></form>
       </details>
     </div>
-    <details class="note-template-manager">
-      <summary>Manage templates</summary>
+    <div id="noteFields" class="note-fields hidden" aria-label="Note template fields"></div>
+    <div id="noteWorkspace" class="note-workspace" data-layout="split">
+      <textarea id="noteEditor" aria-label="Note Markdown" placeholder="Write your note in Markdown…" spellcheck="true"></textarea>
+      <article id="notePreview" class="md-preview" aria-label="Note preview"></article>
+    </div>
+  </main>
+
+  <dialog id="noteTemplateDialog" class="modal note-template-manager" aria-labelledby="noteTemplateDialogTitle">
+    <div class="modal-header"><h2 id="noteTemplateDialogTitle">Manage templates</h2><button id="closeNoteTemplates" type="button" class="btn-icon" aria-label="Close templates">✕</button></div>
       <form id="noteTemplateForm">
         <div class="note-toolbar">
           <label>Template <select id="manageNoteTemplate" aria-label="Template to edit"></select></label>
@@ -113,20 +122,18 @@
         </div>
         <label for="noteTemplateName">Name</label>
         <input id="noteTemplateName" type="text" maxlength="80" required placeholder="Template name">
+        <div class="note-toolbar template-fields-heading"><strong>Custom fields</strong><button id="addNoteTemplateField" type="button" class="btn btn-secondary">+ Add field</button></div>
+        <p class="template-help">Use a field key as {{jira}} in the content. Set a default value here, then fill it above the note editor after inserting the template.</p>
+        <div id="noteTemplateFields"></div>
         <label for="noteTemplateContent">Markdown content</label>
         <textarea id="noteTemplateContent" required dir="auto" placeholder="Write your template in Markdown…"></textarea>
-        <div class="note-toolbar">
+        <div class="note-toolbar template-save-actions">
           <button type="submit" class="btn btn-primary">Save template</button>
-          <span>Use {{date}} to insert today's date.</span>
+          <span>Dynamic: {{date}}, {{jDate}}, {{time}}, {{jFullDatetime}}, {{fullDateTime}}</span>
           <span id="noteTemplateStatus" role="status"></span>
         </div>
       </form>
-    </details>
-    <div id="noteWorkspace" class="note-workspace" data-layout="split">
-      <textarea id="noteEditor" aria-label="Note Markdown" placeholder="Write your note in Markdown…" spellcheck="true"></textarea>
-      <article id="notePreview" class="md-preview" aria-label="Note preview"></article>
-    </div>
-  </main>
+  </dialog>
 
   <!-- Task Modal -->
   <div id="modalOverlay" class="modal-overlay hidden">

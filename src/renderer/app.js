@@ -1066,6 +1066,7 @@ function escapeHtml(str) {
 }
 
 function handleKeyboardShortcut(event) {
+  if (document.getElementById('noteTemplateDialog').open) return;
   const modifier = event.metaKey || event.ctrlKey;
   if (modifier && event.key.toLowerCase() === 'n') {
     event.preventDefault();

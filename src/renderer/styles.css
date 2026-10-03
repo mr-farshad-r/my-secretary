@@ -664,8 +664,18 @@ body:has(.update-banner:not(.hidden)) .note-view { height: calc(100vh - 125px); 
 .note-table-generator input { width: 65px; }
 @media (max-width: 850px) { .note-workspace { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; } .note-workspace[data-layout="edit"], .note-workspace[data-layout="preview"] { grid-template-rows: 1fr; } }
 
-.note-template-manager { flex-shrink: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
-.note-template-manager summary { cursor: pointer; padding: 10px 14px; font-size: 13px; }
-.note-template-manager form { padding: 0 14px 14px; max-height: 38vh; overflow: auto; }
-#noteTemplateContent { min-height: 110px; resize: vertical; font-family: monospace; }
-.note-template-manager .note-toolbar span { font-size: 12px; color: var(--text-dim); }
+.note-template-manager { margin: auto; padding: 0; color: var(--text); border: 1px solid var(--border); max-width: min(760px, 94vw); }
+.note-template-manager::backdrop { background: rgba(0,0,0,.6); }
+.note-template-manager form { padding: 16px 24px 24px; }
+#noteTemplateContent { min-height: 180px; resize: vertical; font-family: monospace; }
+.note-template-manager .note-toolbar span, .template-help { font-size: 12px; color: var(--text-dim); }
+.template-help { margin-block: 8px; }
+.note-template-field-row { display: flex; align-items: center; gap: 8px; }
+.note-template-field-row input { min-width: 0; flex: 1; }
+.note-template-field-row .template-field-key { max-width: 35%; }
+.note-fields { flex-shrink: 0; display: flex; flex-wrap: wrap; gap: 12px; max-height: 20vh; overflow: auto; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.note-fields label { flex: 1; min-width: 180px; margin: 0; }
+.note-fields input { margin-bottom: 0; }
+
+.note-template-manager .template-fields-heading { padding-block: 12px; gap: 12px; }
+.note-template-manager .template-save-actions { padding-block: 12px; gap: 12px; }

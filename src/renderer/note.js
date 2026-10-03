@@ -7,6 +7,32 @@ const NOTE_TEMPLATES = {
   project: '# Project plan\n\n## Goal\n\n## Milestones\n\n| Milestone | Owner | Due date |\n| --- | --- | --- |\n| | | |\n\n## Tasks\n- [ ] \n\n## Risks\n',
 };
 
+function noteDynamicValues(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US-u-ca-persian', { year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
+  const part = type => parts.find(item => item.type === type).value;
+  const jDate = `${part('year')}/${part('month')}/${part('day')}`;
+  const time = now.toLocaleTimeString();
+  return { date: now.toLocaleDateString(undefined, { calendar: 'gregory' }), jDate, time,
+    jFullDatetime: `${jDate} ${time}`, fullDateTime: now.toLocaleString(undefined, { calendar: 'gregory' }) };
+}
+
+function resolveNoteFields(source, values) {
+  return source.replace(/\{\{([^{}]+)\}\}/g, (placeholder, key) => Object.hasOwn(values, key) ? values[key] : placeholder);
+}
+
+function validateNoteFields(fields) {
+  const reserved = noteDynamicValues();
+  const seen = new Set();
+  for (const field of fields) {
+    if (!field || typeof field.key !== 'string' || !/^[\p{L}\p{N}_-]+$/u.test(field.key) ||
+      Object.hasOwn(reserved, field.key) || seen.has(field.key) || typeof field.value !== 'string') {
+      throw new Error('Field keys must be unique letters, numbers, underscores, or hyphens and cannot use dynamic placeholder names.');
+    }
+    seen.add(field.key);
+  }
+  return fields;
+}
+
 function noteTable(rows, columns) {
   if (!Number.isInteger(rows) || !Number.isInteger(columns) || rows < 1 || rows > 100 || columns < 1 || columns > 20) {
     throw new Error('Use 1–100 rows and 1–20 columns.');
@@ -55,10 +81,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const preview = document.getElementById('notePreview');
   const direction = document.getElementById('noteDirection');
   const status = document.getElementById('noteStatus');
+  let noteFields = [];
   try {
     const saved = JSON.parse(localStorage.getItem(NOTE_KEY) || '{}');
     editor.value = typeof saved.content === 'string' ? saved.content : '';
     direction.value = saved.direction === 'rtl' ? 'rtl' : 'ltr';
+    noteFields = validateNoteFields(saved.fields || []);
   } catch { status.textContent = 'Could not load saved note. Export before editing.'; }
 
   const templatePicker = document.getElementById('noteTemplate');
@@ -79,19 +107,44 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!Array.isArray(saved) || saved.some(item => !item || typeof item.id !== 'string' ||
         typeof item.name !== 'string' || !item.name.trim() || typeof item.content !== 'string') ||
         new Set(saved.map(item => item.id)).size !== saved.length) throw new Error('Invalid templates');
-      templates = saved;
+      templates = saved.map(template => ({ ...template, fields: validateNoteFields(template.fields || []) }));
     }
   } catch {
     templatesLoadFailed = true;
     templateStatus.textContent = 'Could not load templates. Template changes are disabled to protect saved data.';
     document.getElementById('noteTemplateForm').querySelectorAll('input, textarea, select, button').forEach(control => { control.disabled = true; });
   }
+  const dialog = document.getElementById('noteTemplateDialog');
+  document.getElementById('manageNoteTemplatesBtn').addEventListener('click', () => dialog.showModal());
+  document.getElementById('closeNoteTemplates').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('click', event => {
+    const rect = dialog.getBoundingClientRect();
+    if (event.target === dialog && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) dialog.close();
+  });
+  function addTemplateField(key = '', value = '') {
+    const row = document.createElement('div');
+    row.className = 'note-template-field-row';
+    const keyInput = document.createElement('input');
+    keyInput.type = 'text';
+    keyInput.className = 'template-field-key'; keyInput.placeholder = 'Key, e.g. jira'; keyInput.setAttribute('aria-label', 'Custom field key'); keyInput.value = key;
+    const valueInput = document.createElement('input');
+    valueInput.type = 'text';
+    valueInput.className = 'template-field-value'; valueInput.placeholder = 'Default value'; valueInput.setAttribute('aria-label', 'Custom field default value'); valueInput.value = value;
+    const remove = document.createElement('button');
+    remove.type = 'button'; remove.className = 'btn-icon'; remove.textContent = '✕'; remove.setAttribute('aria-label', 'Remove custom field');
+    remove.addEventListener('click', () => row.remove());
+    row.append(keyInput, valueInput, remove);
+    document.getElementById('noteTemplateFields').appendChild(row);
+  }
+  document.getElementById('addNoteTemplateField').addEventListener('click', () => addTemplateField());
   function editTemplate(id) {
     const template = templates.find(item => item.id === id);
     editingTemplateId = template?.id || null;
     managerPicker.value = editingTemplateId || '';
     templateName.value = template?.name || '';
     templateContent.value = template?.content || '';
+    document.getElementById('noteTemplateFields').replaceChildren();
+    (template?.fields || []).forEach(field => addTemplateField(field.key, field.value));
     deleteTemplate.disabled = templatesLoadFailed || !template;
   }
   function renderTemplates(selectedId) {
@@ -128,7 +181,13 @@ document.addEventListener('DOMContentLoaded', () => {
       templateStatus.textContent = 'Enter a name and Markdown content.';
       return;
     }
-    const updated = { id: editingTemplateId || crypto.randomUUID(), name, content: templateContent.value };
+    let fields;
+    try {
+      fields = validateNoteFields([...document.querySelectorAll('.note-template-field-row')].map(row => ({
+        key: row.querySelector('.template-field-key').value.trim(), value: row.querySelector('.template-field-value').value,
+      })));
+    } catch (error) { templateStatus.textContent = error.message; return; }
+    const updated = { id: editingTemplateId || crypto.randomUUID(), name, content: templateContent.value, fields };
     const next = editingTemplateId ? templates.map(item => item.id === editingTemplateId ? updated : item) : [...templates, updated];
     if (storeTemplates(next, updated.id)) templateStatus.textContent = 'Template saved locally.';
   });
@@ -138,13 +197,30 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   renderTemplates(templatePicker.value);
 
+  function renderFields() {
+    const container = document.getElementById('noteFields');
+    container.replaceChildren();
+    container.classList.toggle('hidden', !noteFields.length);
+    for (const field of noteFields) {
+      const label = document.createElement('label');
+      const caption = document.createElement('span'); caption.textContent = field.key;
+      const input = document.createElement('input');
+      input.type = 'text'; input.value = field.value; input.dir = 'auto'; input.dataset.key = field.key;
+      input.placeholder = `Value for {{${field.key}}}`;
+      input.addEventListener('input', () => { field.value = input.value; save(); });
+      label.append(caption, input); container.appendChild(label);
+    }
+  }
+  function resolvedContent() {
+    return resolveNoteFields(editor.value, Object.fromEntries(noteFields.map(field => [field.key, field.value])));
+  }
   function refresh() {
     editor.dir = preview.dir = direction.value;
-    preview.innerHTML = renderNoteMarkdown(editor.value);
+    preview.innerHTML = renderNoteMarkdown(resolvedContent());
   }
   function save() {
     try {
-      localStorage.setItem(NOTE_KEY, JSON.stringify({ content: editor.value, direction: direction.value }));
+      localStorage.setItem(NOTE_KEY, JSON.stringify({ content: editor.value, direction: direction.value, fields: noteFields }));
       status.textContent = 'Saved locally';
     } catch { status.textContent = 'Could not save. Export your note to keep a copy.'; }
     refresh();
@@ -167,7 +243,12 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('insertNoteTemplate').addEventListener('click', () => {
     const template = templates.find(item => item.id === templatePicker.value);
-    if (template) insert('\n\n' + template.content.replaceAll('{{date}}', new Date().toLocaleDateString()) + '\n');
+    if (!template) return;
+    for (const field of template.fields || []) {
+      if (!noteFields.some(existing => existing.key === field.key)) noteFields.push({ ...field });
+    }
+    renderFields();
+    insert('\n\n' + resolveNoteFields(template.content, noteDynamicValues()) + '\n');
   });
   document.getElementById('noteTableForm').addEventListener('submit', event => {
     event.preventDefault();
@@ -181,7 +262,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (/^https?:/i.test(link.getAttribute('href'))) window.api.app.openExternal(link.href).catch(() => { status.textContent = 'Could not open link.'; });
   });
   function download(html) {
-    const content = html ? noteHtml(editor.value, direction.value) : editor.value;
+    const source = resolvedContent();
+    const content = html ? noteHtml(source, direction.value) : source;
     const url = URL.createObjectURL(new Blob([content], { type: html ? 'text/html;charset=utf-8' : 'text/markdown;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
@@ -193,5 +275,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   document.getElementById('exportNoteMarkdown').addEventListener('click', () => download(false));
   document.getElementById('exportNoteHtml').addEventListener('click', () => download(true));
+  document.getElementById('copyNoteMarkdown').addEventListener('click', async event => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      await navigator.clipboard.writeText(resolvedContent());
+      status.textContent = 'Markdown copied to clipboard.';
+    } catch { status.textContent = 'Could not copy Markdown. Try again or use Export Markdown.'; }
+    finally { button.disabled = false; }
+  });
+  renderFields();
   refresh();
 });
