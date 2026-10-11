@@ -149,3 +149,5 @@ Run the Note checks with `node_modules/.bin/electron tests/note.cjs`.
 For a link with a custom label, set a field to a plain URL (for example, `jira` = `https://example.com/issue`) and write `[Task]({{jira}})` in the note.
 
 **Copy Teams** copies formatted content and clickable links, with resolved custom fields and a readable plain-text fallback. Paste normally into the Teams message editor to keep formatting.
+
+Markdown in task descriptions, comments, and notes supports offline syntax highlighting. Use inline backticks for short code or fenced blocks with a language name such as `javascript`, `python`, or `sql`. Unlabeled code uses automatic detection; unsupported language labels remain plain text. HTML exports and Teams copies include the code colors.

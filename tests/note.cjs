@@ -12,19 +12,36 @@ app.whenReady().then(async () => {
     const result = await window.webContents.executeJavaScript(`(async () => {
       const assert = (condition, message) => { if (!condition) throw new Error(message); };
       assert(normalizeStatus('done') === 'done' && [...document.getElementById('taskStatus').options].some(option => option.value === 'done'), 'Done status available');
+      const tick = String.fromCharCode(96);
+      const codeMarkdown = [tick.repeat(3) + 'javascript', 'const count = 42;', tick.repeat(3), '', 'Inline ' + tick + 'const count = 42' + tick].join(String.fromCharCode(10));
+      const codeOutput = document.createElement('div'); codeOutput.innerHTML = renderNoteMarkdown(codeMarkdown);
+      assert(codeOutput.querySelector('pre code .hljs-keyword') && codeOutput.querySelector('p code .hljs-number'), 'Fenced and inline syntax highlighted');
+      assert(codeOutput.querySelector('pre code').textContent === 'const count = 42;' + String.fromCharCode(10), 'Code text preserved');
+      assert(codeOutput.querySelector('.hljs-keyword').style.color, 'Token colors travel with content');
+      codeOutput.innerHTML = renderNoteMarkdown([tick.repeat(3) + 'unknownlanguage', '<img src=x onerror=alert(1)>', tick.repeat(3)].join(String.fromCharCode(10)));
+      assert(!codeOutput.querySelector('img') && codeOutput.textContent.includes('<img'), 'Unknown language stays escaped');
+      assert(noteHtml(codeMarkdown, 'rtl').includes('hljs-keyword') && noteTeamsContent(codeMarkdown, 'rtl').html.includes('color:'), 'Exports retain highlighting');
+      document.getElementById('taskDescription').value = codeMarkdown;
+      setPreviewMode(true);
+      assert(document.getElementById('mdPreview').querySelector('.hljs-keyword'), 'Task description highlighting');
+      setPreviewMode(false);
       const originalApi = window.api;
       window.api = { comments: { getAll: async () => [
         { id: 'event', kind: 'event', body: 'Updated description', shamsi_created_at: '1405/07/19 12:00' },
-        { id: 'comment', kind: 'comment', body: '**Hello**\\n\\nسلام\\n\\n<script>alert(1)</script>', shamsi_created_at: '1405/07/19 12:01' },
+        { id: 'comment', kind: 'comment', body: codeMarkdown + '\\n\\n**Hello**\\n\\nسلام\\n\\n<script>alert(1)</script>', shamsi_created_at: '1405/07/19 12:01' },
       ] } };
       await loadComments('task');
       const timeline = document.getElementById('commentsList');
       assert(timeline.querySelectorAll('.timeline-event').length === 1 && timeline.querySelectorAll('.delete-comment').length === 1, 'Events and deletable comments share timeline');
+      assert(timeline.querySelector('pre code .hljs-keyword'), 'Timeline code highlighting');
       assert(timeline.querySelector('strong').textContent === 'Hello' && !timeline.querySelector('script'), 'Comment Markdown sanitized');
       assert([...timeline.querySelectorAll('.comment-body, .comment-body p')].every(block => block.dir === 'auto'), 'Automatic comment direction');
       window.api = originalApi;
       setView('note');
       assert(document.getElementById('noteFields').classList.contains('hidden'), 'Plain note has no inputs');
+      document.getElementById('noteEditor').value = codeMarkdown;
+      document.getElementById('noteEditor').dispatchEvent(new Event('input'));
+      assert(document.getElementById('notePreview').querySelector('pre code .hljs-keyword'), 'Note preview highlighting');
       assert(!document.getElementById('note').classList.contains('hidden'), 'Note view visible');
       assert(document.getElementById('board').classList.contains('hidden'), 'Board hidden');
       const editor = document.getElementById('noteEditor');

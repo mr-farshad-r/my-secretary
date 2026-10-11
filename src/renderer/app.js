@@ -1028,7 +1028,7 @@ function setPreviewMode(enabled) {
   const btn = document.getElementById('previewBtn');
 
   if (isPreviewMode) {
-    preview.innerHTML = marked.parse(ta.value || '*Nothing to preview*');
+    preview.innerHTML = renderNoteMarkdown(ta.value || '*Nothing to preview*');
     preview.classList.remove('hidden');
     ta.classList.add('hidden');
     btn.classList.add('active');

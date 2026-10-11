@@ -45,6 +45,12 @@ function noteTable(rows, columns) {
   ].join('\n') + '\n\n';
 }
 
+const CODE_COLORS = {
+  keyword: '#a56adb', literal: '#a56adb', built_in: '#b87536', type: '#b87536',
+  string: '#46945a', regexp: '#46945a', number: '#bc7950', comment: '#858b98',
+  title: '#558cd1', attr: '#558cd1', name: '#558cd1', tag: '#558cd1',
+};
+
 function renderNoteMarkdown(source) {
   // Allow only Markdown's passive HTML elements and explicit safe attributes.
   const template = document.createElement('template');
@@ -54,6 +60,7 @@ function renderNoteMarkdown(source) {
     if (!allowed.has(element.tagName)) { element.remove(); continue; }
     const attrs = Object.fromEntries([...element.attributes].map(attr => [attr.name, attr.value]));
     for (const attr of [...element.attributes]) element.removeAttribute(attr.name);
+    if (element.tagName === 'CODE' && /^language-[\w+-]+$/.test(attrs.class || '')) element.className = attrs.class;
     if (element.tagName === 'A' && /^(https?:|mailto:|#)/i.test(attrs.href || '')) {
       element.setAttribute('href', attrs.href);
       element.setAttribute('rel', 'noopener noreferrer');
@@ -69,6 +76,19 @@ function renderNoteMarkdown(source) {
     }
     if (['TH', 'TD'].includes(element.tagName) && /^(left|center|right)$/.test(attrs.align || '')) element.setAttribute('align', attrs.align);
   }
+  for (const code of template.content.querySelectorAll('code')) {
+    const language = code.className.replace(/^language-/, '');
+    const text = code.textContent;
+    // Highlight only sanitized text; unknown explicit languages stay plain.
+    if (language && !hljs.getLanguage(language)) continue;
+    code.innerHTML = language ? hljs.highlight(text, { language, ignoreIllegals: true }).value : hljs.highlightAuto(text).value;
+    for (const token of code.querySelectorAll('span')) {
+      const scope = [...token.classList].find(name => name.startsWith('hljs-'))?.slice(5);
+      if (CODE_COLORS[scope]) token.style.color = CODE_COLORS[scope];
+    }
+    code.style.direction = 'ltr';
+    code.style.unicodeBidi = 'isolate';
+  }
   return template.innerHTML;
 }
 
@@ -82,6 +102,10 @@ function noteTeamsContent(source, direction) {
     cell.style.padding = '8px';
   }
   for (const table of content.querySelectorAll('table')) table.style.borderCollapse = 'collapse';
+  for (const code of content.querySelectorAll('code')) {
+    code.style.fontFamily = 'monospace';
+    if (code.parentElement.tagName !== 'PRE') { code.style.background = '#f1f2f4'; code.style.padding = '2px 4px'; }
+  }
   const html = content.outerHTML;
   // Supply readable text, including link destinations, to plain-text paste targets.
   for (const link of content.querySelectorAll('a[href]')) {
@@ -96,7 +120,7 @@ function noteTeamsContent(source, direction) {
 }
 
 function noteHtml(source, direction) {
-  return `<!DOCTYPE html>\n<html lang="en" dir="${direction === 'rtl' ? 'rtl' : 'ltr'}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Note</title><style>body{max-width:960px;margin:40px auto;padding:24px;font:16px/1.7 system-ui;text-align:start}table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:8px}pre{direction:ltr;text-align:left;background:#f4f4f4;padding:16px;overflow:auto}img{max-width:100%}blockquote{border-inline-start:3px solid #888;padding-inline-start:16px}</style></head><body>${renderNoteMarkdown(source)}</body></html>`;
+  return `<!DOCTYPE html>\n<html lang="en" dir="${direction === 'rtl' ? 'rtl' : 'ltr'}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Note</title><style>body{max-width:960px;margin:40px auto;padding:24px;font:16px/1.7 system-ui;text-align:start}table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:8px}code{font-family:monospace;direction:ltr;unicode-bidi:isolate}p code,li code{background:#f1f2f4;padding:2px 4px;border-radius:3px}pre{direction:ltr;text-align:left;background:#f4f4f4;padding:16px;overflow:auto}img{max-width:100%}blockquote{border-inline-start:3px solid #888;padding-inline-start:16px}</style></head><body>${renderNoteMarkdown(source)}</body></html>`;
 }
 
 document.addEventListener('DOMContentLoaded', () => {

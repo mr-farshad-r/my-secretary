@@ -700,3 +700,6 @@ body:has(.update-banner:not(.hidden)) .note-view { height: calc(100vh - 125px); 
 
 .note-template-manager .template-fields-heading { padding-block: 12px; gap: 12px; }
 .note-template-manager .template-save-actions { padding-block: 12px; gap: 12px; }
+
+.md-preview code { direction: ltr; unicode-bidi: isolate; }
+.md-preview pre { direction: ltr; text-align: left; }
