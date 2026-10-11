@@ -17,11 +17,11 @@ let commentContributions = {};
 const notifiedEvents = new Set();
 
 const STATUS_COLUMNS = ['todo', 'wip', 'done'];
-const STATUS_LABELS = { pending: 'PENDING', wip: 'WIP', canceled: 'CANCELED' };
+const STATUS_LABELS = { pending: 'PENDING', wip: 'WIP', done: 'DONE', canceled: 'CANCELED' };
 
 function normalizeStatus(status) {
   if (status === 'inprogress') return 'wip';
-  return ['wip', 'pending', 'canceled'].includes(status) ? status : 'pending';
+  return ['wip', 'pending', 'done', 'canceled'].includes(status) ? status : 'pending';
 }
 
 // ─── Shamsi ↔ Miladi conversion ──────────────────────
@@ -657,18 +657,27 @@ async function loadComments(taskId) {
   const comments = await window.api.comments.getAll(taskId);
   const list = document.getElementById('commentsList');
   if (!comments.length) {
-    list.innerHTML = '<p class="comments-empty">No comments yet.</p>';
+    list.innerHTML = '<p class="comments-empty">No activity yet. Add a comment to start the conversation.</p>';
     return;
   }
   list.innerHTML = comments.map(comment => `
-    <article class="comment-item">
+    <article class="comment-item ${comment.kind === 'event' ? 'timeline-event' : ''}">
+      <span class="timeline-marker" aria-hidden="true">${comment.kind === 'event' ? '↻' : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6 3V6a2 2 0 0 1 2-2Z"/></svg>'}</span>
       <div class="comment-header">
+        <span class="comment-author">${comment.kind === 'event' ? 'Task updated' : 'Comment'}</span>
         <time class="comment-time">${escapeHtml(comment.shamsi_created_at)}</time>
-        <button type="button" class="delete-comment" data-comment-id="${escapeHtml(comment.id)}" aria-label="Delete comment" title="Delete comment">Delete</button>
+        ${comment.kind !== 'event' ? `<button type="button" class="delete-comment" data-comment-id="${escapeHtml(comment.id)}" aria-label="Delete comment" title="Delete comment">Delete</button>` : ''}
       </div>
-      <div class="comment-body">${escapeHtml(comment.body)}</div>
+      <div class="comment-body md-preview" dir="auto">${comment.kind === 'event' ? escapeHtml(comment.body) : renderNoteMarkdown(comment.body)}</div>
     </article>
   `).join('');
+  list.querySelectorAll('.comment-body p, .comment-body li, .comment-body blockquote, .comment-body h1, .comment-body h2, .comment-body h3').forEach(block => block.dir = 'auto');
+  list.onclick = event => {
+    const link = event.target.closest('a');
+    if (!link) return;
+    event.preventDefault();
+    if (/^https?:/i.test(link.getAttribute('href') || '')) window.api.app.openExternal(link.href);
+  };
   list.querySelectorAll('.delete-comment').forEach(button => {
     button.addEventListener('click', () => deleteComment(button.dataset.commentId));
   });

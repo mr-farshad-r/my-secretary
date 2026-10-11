@@ -155,6 +155,7 @@
             <select id="taskStatus">
               <option value="wip">WIP</option>
               <option value="pending">Pending</option>
+              <option value="done">Done</option>
               <option value="canceled">Canceled</option>
             </select>
           </div>
@@ -205,12 +206,12 @@
         <button type="button" id="addFieldBtn" class="btn btn-ghost btn-sm">+ Add Field</button>
 
         <section id="commentsSection" class="comments-section hidden">
-          <label>Comments</label>
+          <div class="timeline-heading"><h3>Activity</h3><span>Latest first</span></div>
+          <div id="commentsList" class="comments-list" aria-label="Task activity"></div>
           <div class="comment-composer">
-            <textarea id="commentBody" rows="3" placeholder="Add a comment..."></textarea>
-            <button type="button" id="addCommentBtn" class="btn btn-secondary">Add comment</button>
+            <textarea id="commentBody" rows="3" dir="auto" placeholder="Add a comment (Markdown supported)..."></textarea>
+            <div class="comment-composer-footer"><span>Markdown supported</span><button type="button" id="addCommentBtn" class="btn btn-primary">Post comment</button></div>
           </div>
-          <div id="commentsList" class="comments-list"></div>
         </section>
 
         <div id="timestamps" class="timestamps hidden">

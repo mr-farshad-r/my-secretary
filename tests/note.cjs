@@ -11,7 +11,20 @@ app.whenReady().then(async () => {
     await window.loadFile(path.join(__dirname, '../src/renderer/index.html'));
     const result = await window.webContents.executeJavaScript(`(async () => {
       const assert = (condition, message) => { if (!condition) throw new Error(message); };
+      assert(normalizeStatus('done') === 'done' && [...document.getElementById('taskStatus').options].some(option => option.value === 'done'), 'Done status available');
+      const originalApi = window.api;
+      window.api = { comments: { getAll: async () => [
+        { id: 'event', kind: 'event', body: 'Updated description', shamsi_created_at: '1405/07/19 12:00' },
+        { id: 'comment', kind: 'comment', body: '**Hello**\\n\\nسلام\\n\\n<script>alert(1)</script>', shamsi_created_at: '1405/07/19 12:01' },
+      ] } };
+      await loadComments('task');
+      const timeline = document.getElementById('commentsList');
+      assert(timeline.querySelectorAll('.timeline-event').length === 1 && timeline.querySelectorAll('.delete-comment').length === 1, 'Events and deletable comments share timeline');
+      assert(timeline.querySelector('strong').textContent === 'Hello' && !timeline.querySelector('script'), 'Comment Markdown sanitized');
+      assert([...timeline.querySelectorAll('.comment-body, .comment-body p')].every(block => block.dir === 'auto'), 'Automatic comment direction');
+      window.api = originalApi;
       setView('note');
+      assert(document.getElementById('noteFields').classList.contains('hidden'), 'Plain note has no inputs');
       assert(!document.getElementById('note').classList.contains('hidden'), 'Note view visible');
       assert(document.getElementById('board').classList.contains('hidden'), 'Board hidden');
       const editor = document.getElementById('noteEditor');
@@ -87,7 +100,12 @@ app.whenReady().then(async () => {
       document.getElementById('insertNoteTemplate').click();
       const jira = document.querySelector('#noteFields input[data-key="jira"]');
       assert(jira && jira.value === 'https://example.com/default', 'Default field displayed above editor');
-      jira.value = '[Jira](https://example.com/issue)'; jira.dispatchEvent(new Event('input'));
+      const withFields = editor.value;
+      editor.value = 'Plain note'; editor.dispatchEvent(new Event('input'));
+      assert(document.getElementById('noteFields').classList.contains('hidden'), 'Unrelated inputs hidden');
+      editor.value = withFields; editor.dispatchEvent(new Event('input'));
+      const restoredJira = document.querySelector('#noteFields input[data-key="jira"]');
+      restoredJira.value = '[Jira](https://example.com/issue)'; restoredJira.dispatchEvent(new Event('input'));
       assert(editor.value.includes('{{jira}}') && !preview.textContent.includes('{{jira}}'), 'Editor retains placeholder; preview resolves it');
       assert(preview.querySelector('a[href="https://example.com/issue"]'), 'Markdown field renders as a link');
       const renderedExports = [];

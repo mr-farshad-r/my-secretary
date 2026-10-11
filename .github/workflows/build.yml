@@ -120,6 +120,8 @@ jobs:
           pattern: my-secretary-*
           path: release-assets
           merge-multiple: true
+      - name: Prepare download buttons and release notes
+        run: node scripts/release-notes.cjs "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" release-assets > release-notes.md
       - name: Create public release with changelog
         shell: bash
         env:
@@ -128,5 +130,5 @@ jobs:
           gh release create "${GITHUB_REF_NAME}" release-assets/* \
             --verify-tag \
             --title "My Secretary ${GITHUB_REF_NAME}" \
-            --generate-notes \
+            --notes-file release-notes.md \
             --latest

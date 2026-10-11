@@ -125,7 +125,7 @@ Build the Windows installer on Windows and Linux packages on Linux so the SQLite
 
 ## Releases
 
-GitHub Actions builds macOS Apple Silicon, Windows x64, and Linux x64 packages. Pushing a version tag that matches the version in `package.json` creates a public GitHub Release with all platform packages and automatically generated release notes.
+GitHub Actions builds macOS Apple Silicon, Windows x64, and Linux x64 packages. Pushing a version tag that matches the version in `package.json` creates a public GitHub Release with all platform packages, OS download buttons, and readable release notes. Before tagging, add `docs/releases/v<version>.md` with a short introduction and user-facing changes grouped by feature. Move the applicable changes from `docs/releases/unreleased.md` into that version’s notes. The release job requires this file and builds download links from the uploaded package filenames.
 
 Example:
 

@@ -223,8 +223,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderFields() {
     const container = document.getElementById('noteFields');
     container.replaceChildren();
-    container.classList.toggle('hidden', !noteFields.length);
-    for (const field of noteFields) {
+    const relatedFields = noteFields.filter(field => editor.value.includes(`{{${field.key}}}`));
+    container.classList.toggle('hidden', !relatedFields.length);
+    for (const field of relatedFields) {
       const label = document.createElement('label');
       const caption = document.createElement('span'); caption.textContent = field.key;
       const input = document.createElement('input');
@@ -253,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
     editor.dispatchEvent(new Event('input', { bubbles: true }));
     editor.focus();
   }
-  editor.addEventListener('input', save);
+  editor.addEventListener('input', () => { save(); renderFields(); });
   direction.addEventListener('change', save);
   document.getElementById('noteViewBtn').addEventListener('click', () => setView('note'));
   document.getElementById('noteLayout').addEventListener('change', event => {

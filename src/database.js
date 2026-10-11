@@ -95,10 +95,15 @@ function initDb() {
     db.exec('ALTER TABLE tasks ADD COLUMN deadline_time TEXT');
   }
 
+  const commentColumns = db.prepare('PRAGMA table_info(task_comments)').all();
+  if (!commentColumns.some(column => column.name === 'kind')) {
+    db.exec("ALTER TABLE task_comments ADD COLUMN kind TEXT NOT NULL DEFAULT 'comment'");
+  }
+
   // Keep the task badge independent from its Kanban column.
   db.prepare("UPDATE tasks SET status = 'pending' WHERE status = 'todo'").run();
   db.prepare("UPDATE tasks SET status = 'wip' WHERE status = 'inprogress'").run();
-  db.prepare("UPDATE tasks SET status = 'pending' WHERE status NOT IN ('wip', 'pending', 'canceled')").run();
+  db.prepare("UPDATE tasks SET status = 'pending' WHERE status NOT IN ('wip', 'pending', 'done', 'canceled')").run();
 
   return db;
 }
@@ -166,7 +171,18 @@ function updateTask(id, updates) {
     }
   }
   if (fields.length === 0) return getTask(id);
-  getDb().prepare(`UPDATE tasks SET ${fields.join(', ')} WHERE id = @id`).run(values);
+  const database = getDb();
+  database.transaction(() => {
+    const previous = getTask(id);
+    database.prepare(`UPDATE tasks SET ${fields.join(', ')} WHERE id = @id`).run(values);
+    if (!previous) return;
+    for (const key of ['status', 'column_status', 'description']) {
+      if (updates[key] === undefined || updates[key] === previous[key]) continue;
+      const body = key === 'description' ? 'Updated description' :
+        `Changed ${key === 'status' ? 'status' : 'board column'} from ${previous[key]} to ${updates[key]}`;
+      addComment(id, body, 'event');
+    }
+  })();
   return getTask(id);
 }
 
@@ -213,21 +229,21 @@ function getComments(taskId) {
   `).all(taskId);
 }
 
-function addComment(taskId, body) {
+function addComment(taskId, body, kind = 'comment') {
   const trimmedBody = String(body || '').trim();
   if (!trimmedBody) throw new Error('Comment cannot be empty');
   if (!getTask(taskId)) throw new Error('Task not found');
   const id = require('crypto').randomUUID();
   getDb().prepare(`
-    INSERT INTO task_comments (id, task_id, body, shamsi_created_at)
-    VALUES (?, ?, ?, ?)
-  `).run(id, taskId, trimmedBody, shamsiTimestamp());
+    INSERT INTO task_comments (id, task_id, body, shamsi_created_at, kind)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(id, taskId, trimmedBody, shamsiTimestamp(), kind);
   return getDb().prepare('SELECT * FROM task_comments WHERE id = ?').get(id);
 }
 
 function deleteComment(taskId, commentId) {
   const result = getDb().prepare(`
-    DELETE FROM task_comments WHERE id = ? AND task_id = ?
+    DELETE FROM task_comments WHERE id = ? AND task_id = ? AND kind = 'comment'
   `).run(commentId, taskId);
   return result.changes > 0;
 }
@@ -236,6 +252,7 @@ function getCommentContributions() {
   return getDb().prepare(`
     SELECT date(created_at, 'localtime') AS date, COUNT(*) AS count
     FROM task_comments
+    WHERE kind = 'comment'
     GROUP BY date(created_at, 'localtime')
   `).all();
 }
@@ -269,7 +286,7 @@ function getTasksDueOn(miladiDate) {
     FROM tasks LEFT JOIN categories ON categories.id = tasks.category_id
     WHERE tasks.miladi_date = ?
       AND tasks.column_status NOT IN ('done', 'archived')
-      AND tasks.status != 'canceled'
+      AND tasks.status NOT IN ('done', 'canceled')
     ORDER BY tasks.title COLLATE NOCASE
   `).all(miladiDate);
 }
@@ -308,8 +325,8 @@ function importAllData(data) {
       VALUES (@id, @title, @description, @status, @column_status, @priority, @shamsi_date, @miladi_date, @deadline_time, @category_id, @custom_fields, @sort_order, @created_at, @updated_at)
     `);
     const insertComment = database.prepare(`
-      INSERT INTO task_comments (id, task_id, body, shamsi_created_at, created_at)
-      VALUES (@id, @task_id, @body, @shamsi_created_at, @created_at)
+      INSERT INTO task_comments (id, task_id, body, shamsi_created_at, created_at, kind)
+      VALUES (@id, @task_id, @body, @shamsi_created_at, @created_at, @kind)
     `);
     const insertDraft = database.prepare(`
       INSERT INTO task_drafts (task_id, data, updated_at) VALUES (@task_id, @data, @updated_at)
@@ -321,7 +338,7 @@ function importAllData(data) {
       deadline_time: task.deadline_time || null,
       custom_fields: JSON.stringify(task.custom_fields || {}),
     }));
-    data.comments.forEach(comment => insertComment.run(comment));
+    data.comments.forEach(comment => insertComment.run({ ...comment, kind: comment.kind === 'event' ? 'event' : 'comment' }));
     data.drafts.forEach(draft => insertDraft.run({
       ...draft,
       data: JSON.stringify(draft.data || {}),

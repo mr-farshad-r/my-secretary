@@ -1,0 +1,12 @@
+const assert = require('node:assert/strict');
+const { releaseNotes } = require('../scripts/release-notes.cjs');
+const files = ['My Secretary-1.9.0-arm64.dmg', 'My Secretary Setup 1.9.0.exe', 'app.AppImage', 'app.tar.gz', 'app.exe.blockmap'];
+const body = releaseNotes('owner/repo', 'v1.9.0', files, '### Sharing\n\n- Keep links.');
+assert.equal((body.match(/style=for-the-badge/g) || []).length, 4);
+assert(body.includes('My%20Secretary%20Setup%201.9.0.exe'));
+assert(body.includes('### Sharing\n\n- Keep links.'));
+assert(!body.includes('.blockmap'));
+assert.throws(() => releaseNotes('owner/repo', 'v1.9.0', files.slice(1), 'Notes'), /Expected one download/);
+assert.throws(() => releaseNotes('owner/repo', 'v1.9.0', [...files, 'extra.exe'], 'Notes'), /found 2/);
+assert.throws(() => releaseNotes('owner/repo', 'v1.9.0', files, ''), /cannot be empty/);
+console.log('Release buttons, asset validation, and notes checks passed');
