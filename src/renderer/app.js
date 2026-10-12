@@ -9,6 +9,7 @@ let draftTimer = null;
 let draftDirty = false;
 let newTaskColumn = 'todo';
 let dragPlaceholder = null;
+const THEME_SETTING_KEY = 'my-secretary:theme';
 const MOTION_SETTING_KEY = 'my-secretary:motion-enabled';
 const ICS_URL_KEY = 'my-secretary:ics-url';
 let calendarMonth = null;
@@ -86,6 +87,7 @@ function isWebLink(value) {
 
 // ─── Init ───────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('themeMode').value = document.documentElement.dataset.theme || 'light';
   applyMotionSetting(localStorage.getItem(MOTION_SETTING_KEY) !== 'false');
   await Promise.all([loadTasks(), loadCategories()]);
   renderCategoryOptions();
@@ -424,6 +426,11 @@ function setupEventListeners() {
   });
   document.getElementById('openAtStartup').addEventListener('change', saveStartupSetting);
   document.getElementById('motionEnabled').addEventListener('change', saveMotionSetting);
+  document.getElementById('themeMode').addEventListener('change', event => {
+    const theme = event.target.value;
+    localStorage.setItem(THEME_SETTING_KEY, theme);
+    document.documentElement.dataset.theme = theme;
+  });
   document.getElementById('exportAllBtn').addEventListener('click', exportAllData);
   document.getElementById('importAllBtn').addEventListener('click', importAllData);
   document.getElementById('saveIcsBtn').addEventListener('click', saveIcsUrl);

@@ -46,9 +46,9 @@ function noteTable(rows, columns) {
 }
 
 const CODE_COLORS = {
-  keyword: '#a56adb', literal: '#a56adb', built_in: '#b87536', type: '#b87536',
-  string: '#46945a', regexp: '#46945a', number: '#bc7950', comment: '#858b98',
-  title: '#558cd1', attr: '#558cd1', name: '#558cd1', tag: '#558cd1',
+  keyword: '#783b9c', literal: '#783b9c', built_in: '#88521d', type: '#88521d',
+  string: '#2e7041', regexp: '#2e7041', number: '#914e2c', comment: '#626975',
+  title: '#2864a8', attr: '#2864a8', name: '#2864a8', tag: '#2864a8',
 };
 
 function renderNoteMarkdown(source) {

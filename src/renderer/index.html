@@ -4,12 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Secretary</title>
+  <script>
+    try { document.documentElement.dataset.theme = localStorage.getItem('my-secretary:theme') === 'dark' ? 'dark' : 'light'; } catch {}
+  </script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header>
     <div class="header-left">
-      <h1>📋 My Secretary</h1>
+      <h1>My Secretary</h1>
     </div>
     <div class="header-right">
       <span id="currentDate" class="current-date"></span>
@@ -37,20 +40,20 @@
   <main id="board">
     <div class="column" data-status="todo">
       <div class="column-header">
-        <h2>TODO</h2>
-        <div class="column-actions"><select class="category-filter" data-status="todo" aria-label="Filter TODO by category"></select><span class="badge" id="count-todo">0</span></div>
+        <h2>To do</h2>
+        <div class="column-actions"><select class="category-filter" data-status="todo" aria-label="Filter To do by category"></select><span class="badge" id="count-todo">0</span></div>
       </div>
       <div class="task-list" data-status="todo"></div>
-      <button class="add-to-column" data-status="todo">+ Add</button>
+      <button class="add-to-column" data-status="todo">+ New task</button>
     </div>
 
     <div class="column" data-status="wip">
       <div class="column-header">
-        <h2>WIP</h2>
-        <div class="column-actions"><select class="category-filter" data-status="wip" aria-label="Filter WIP by category"></select><span class="badge" id="count-wip">0</span></div>
+        <h2>In progress</h2>
+        <div class="column-actions"><select class="category-filter" data-status="wip" aria-label="Filter In progress by category"></select><span class="badge" id="count-wip">0</span></div>
       </div>
       <div class="task-list" data-status="wip"></div>
-      <button class="add-to-column" data-status="wip">+ Add</button>
+      <button class="add-to-column" data-status="wip">+ New task</button>
     </div>
 
     <div class="column" data-status="done">
@@ -63,7 +66,7 @@
         </div>
       </div>
       <div class="task-list" data-status="done"></div>
-      <button class="add-to-column" data-status="done">+ Add</button>
+      <button class="add-to-column" data-status="done">+ New task</button>
     </div>
   </main>
 
@@ -141,17 +144,17 @@
     <div class="modal">
       <div class="modal-header">
         <h2 id="modalTitle">New Task</h2>
-        <button id="closeModal" class="btn-icon">✕</button>
+        <button id="closeModal" class="btn-icon" aria-label="Close task">✕</button>
       </div>
       <form id="taskForm">
         <input type="hidden" id="taskId">
 
-        <label>Title <span class="required">*</span></label>
+        <label for="taskTitle">Title <span class="required">*</span></label>
         <input type="text" id="taskTitle" placeholder="Task title..." required>
 
         <div class="form-row task-meta-grid">
           <div>
-            <label>Status</label>
+            <label for="taskStatus">Status</label>
             <select id="taskStatus">
               <option value="wip">WIP</option>
               <option value="pending">Pending</option>
@@ -160,7 +163,7 @@
             </select>
           </div>
           <div>
-            <label>Priority</label>
+            <label for="taskPriority">Priority</label>
             <select id="taskPriority">
               <option value="high">High</option>
               <option value="medium" selected>Medium</option>
@@ -168,11 +171,11 @@
             </select>
           </div>
           <div>
-            <label>Category</label>
+            <label for="taskCategory">Category</label>
             <select id="taskCategory"><option value="">No category</option></select>
           </div>
           <div>
-            <label>Deadline (Shamsi, optional)</label>
+            <label for="taskShamsi">Deadline (Shamsi, optional)</label>
             <input type="text" id="taskShamsi" placeholder="1405/07/29" inputmode="numeric">
           </div>
           <div>
@@ -180,12 +183,12 @@
             <span id="taskMiladiLabel" class="readonly-label">—</span>
           </div>
           <div>
-            <label>Time (optional)</label>
+            <label for="taskDeadlineTime">Time (optional)</label>
             <input type="text" id="taskDeadlineTime" placeholder="HH:MM" inputmode="numeric" pattern="(?:[01]\d|2[0-3]):[0-5]\d">
           </div>
         </div>
 
-        <label>Description (Markdown)</label>
+        <label for="taskDescription">Description (Markdown)</label>
         <div class="md-editor-wrapper">
           <div class="md-toolbar">
             <button type="button" data-md="bold" title="Bold"><strong>B</strong></button>
@@ -270,6 +273,10 @@
         <button id="closeSettings" class="btn-icon" aria-label="Close settings">✕</button>
       </div>
       <div class="settings-content">
+        <div class="settings-action">
+          <span><strong>Appearance</strong><small>Choose a light or dark workspace.</small></span>
+          <select id="themeMode" aria-label="Color theme"><option value="light">Light</option><option value="dark">Dark</option></select>
+        </div>
         <label class="checkbox-setting">
           <input type="checkbox" id="openAtStartup">
           <span><strong>Open at startup</strong><small>Start My Secretary when you log in to your computer.</small></span>
