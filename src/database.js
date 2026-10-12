@@ -252,7 +252,6 @@ function getCommentContributions() {
   return getDb().prepare(`
     SELECT date(created_at, 'localtime') AS date, COUNT(*) AS count
     FROM task_comments
-    WHERE kind = 'comment'
     GROUP BY date(created_at, 'localtime')
   `).all();
 }

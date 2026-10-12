@@ -15,9 +15,14 @@ app.whenReady().then(() => {
     assert.equal(db.getComments(task.id).filter(item => item.kind === 'event').length, 3);
     db.updateTask(task.id, { status: 'done', description: '# Updated', sort_order: 5 });
     assert.equal(db.getComments(task.id).length, 4);
-    assert.equal(db.getCommentContributions()[0].count, 1);
+    assert.equal(db.getCommentContributions()[0].count, 4);
     const event = db.getComments(task.id).find(item => item.kind === 'event');
     assert.equal(db.deleteComment(task.id, event.id), false);
+    assert.equal(db.getCommentContributions()[0].count, 4);
+    const comment = db.getComments(task.id).find(item => item.kind === 'comment');
+    assert.equal(db.deleteComment(task.id, comment.id), true);
+    assert.equal(db.getCommentContributions()[0].count, 3);
+    db.addComment(task.id, '**Hello** سلام');
     const backup = db.exportAllData();
     db.importAllData(backup);
     assert.equal(db.getComments(task.id).length, 4);
@@ -28,6 +33,7 @@ app.whenReady().then(() => {
     assert(db.getComments(task.id).every(item => item.kind === 'comment'));
     db.deleteTask(task.id);
     assert.equal(db.getComments(task.id).length, 0);
+    assert.deepEqual(db.getCommentContributions(), []);
     console.log('Timeline, Done persistence, and backup compatibility passed');
     app.exit(0);
   } catch (error) { console.error(error); app.exit(1); }

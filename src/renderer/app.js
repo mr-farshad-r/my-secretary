@@ -87,7 +87,7 @@ function isWebLink(value) {
 // ─── Init ───────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   applyMotionSetting(localStorage.getItem(MOTION_SETTING_KEY) !== 'false');
-  await Promise.all([loadTasks(), loadCategories(), loadContributions()]);
+  await Promise.all([loadTasks(), loadCategories()]);
   renderCategoryOptions();
   renderBoard();
   showToday();
@@ -104,6 +104,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ─── Data ───────────────────────────────────────────
 async function loadTasks() {
   tasks = await window.api.tasks.getAll();
+  await loadContributions();
 }
 
 async function loadCategories() {
@@ -211,7 +212,7 @@ function renderCalendar() {
     const contributions = dayTasks.length + dayEvents.length + comments;
     const level = contributions ? Math.min(4, Math.ceil(contributions / 2)) : 0;
     day.className = `calendar-day contribution-${level}${jm !== month || jy !== year ? ' outside' : ''}${miladi === todayMiladi() ? ' today' : ''}`;
-    day.innerHTML = `<div class="calendar-date" tabindex="0"><strong>${jd}</strong><small>${miladi}</small><span class="contribution-tooltip"><b>${contributions} ${contributions === 1 ? 'contribution' : 'contributions'}</b><span>${dayTasks.length} tasks · ${dayEvents.length} events · ${comments} comments</span></span></div>`;
+    day.innerHTML = `<div class="calendar-date" tabindex="0"><strong>${jd}</strong><small>${miladi}</small><span class="contribution-tooltip"><b>${contributions} ${contributions === 1 ? 'contribution' : 'contributions'}</b><span>${dayTasks.length} tasks · ${dayEvents.length} events · ${comments} timeline items</span></span></div>`;
     dayTasks.forEach(task => {
       const item = document.createElement('button');
       item.className = 'calendar-event';
@@ -768,7 +769,7 @@ async function importAllData() {
   try {
     const result = await window.api.settings.importAll();
     if (result.canceled) return;
-    await Promise.all([loadTasks(), loadCategories(), loadContributions()]);
+    await Promise.all([loadTasks(), loadCategories()]);
     renderCategoryOptions();
     renderBoard();
     const { tasks: taskCount, categories: categoryCount } = result.counts;
