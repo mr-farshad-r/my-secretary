@@ -7,6 +7,7 @@ let isPreviewMode = false;
 let editingBaseTask = null;
 let draftTimer = null;
 let draftDirty = false;
+let liveSavePromise = Promise.resolve();
 let newTaskColumn = 'todo';
 let dragPlaceholder = null;
 const THEME_SETTING_KEY = 'my-secretary:theme';
@@ -18,11 +19,11 @@ let commentContributions = {};
 const notifiedEvents = new Set();
 
 const STATUS_COLUMNS = ['todo', 'wip', 'done'];
-const STATUS_LABELS = { pending: 'PENDING', wip: 'WIP', done: 'DONE', canceled: 'CANCELED' };
+const STATUS_LABELS = { pending: 'PENDING', wip: 'WIP', done: 'DONE', code_review: 'CODE REVIEW', canceled: 'CANCELED' };
 
 function normalizeStatus(status) {
   if (status === 'inprogress') return 'wip';
-  return ['wip', 'pending', 'done', 'canceled'].includes(status) ? status : 'pending';
+  return ['wip', 'pending', 'done', 'code_review', 'canceled'].includes(status) ? status : 'pending';
 }
 
 // ─── Shamsi ↔ Miladi conversion ──────────────────────
@@ -124,6 +125,7 @@ async function saveTask(data) {
       title: data.title,
       description: data.description,
       status: data.status,
+      status_detail: data.status_detail,
       column_status: data.column_status,
       priority: data.priority,
       category_id: data.category_id,
@@ -137,6 +139,7 @@ async function saveTask(data) {
     title: data.title,
     description: data.description,
     status: data.status || 'pending',
+    status_detail: data.status_detail,
     column_status: data.column_status || 'todo',
     priority: data.priority || 'medium',
     category_id: data.category_id,
@@ -393,7 +396,19 @@ function getDragAfterElement(list, y) {
 }
 
 // ─── Modal ──────────────────────────────────────────
+function updateStatusDetail() {
+  const status = document.getElementById('taskStatus').value;
+  const show = ['pending', 'code_review', 'canceled'].includes(status) && status !== editingBaseTask?.status;
+  document.getElementById('taskStatusDetailBox').classList.toggle('hidden', !show);
+  document.getElementById('taskStatusDetailLabel').textContent = status === 'code_review' ? 'Reviewer name (optional)' : 'Reason (optional)';
+}
+
 function setupEventListeners() {
+  document.getElementById('taskStatus').addEventListener('change', () => {
+    document.getElementById('taskStatusDetail').value = '';
+    updateStatusDetail();
+    if (!document.getElementById('taskStatusDetailBox').classList.contains('hidden')) document.getElementById('taskStatusDetail').focus();
+  });
   document.getElementById('boardViewBtn').addEventListener('click', () => setView('board'));
   document.getElementById('calendarViewBtn').addEventListener('click', () => setView('calendar'));
   document.getElementById('previousMonthBtn').addEventListener('click', () => changeCalendarMonth(-1));
@@ -457,7 +472,10 @@ function setupEventListeners() {
   document.getElementById('saveDraftBtn').addEventListener('click', () => persistDraft(true));
   document.getElementById('revertDraftBtn').addEventListener('click', revertDraft);
   document.getElementById('addCommentBtn').addEventListener('click', addComment);
-  document.getElementById('taskForm').addEventListener('input', scheduleDraftSave);
+  document.getElementById('taskDescription').addEventListener('input', scheduleDraftSave);
+  document.getElementById('taskForm').addEventListener('change', event => {
+    if (!['taskDescription', 'commentBody'].includes(event.target.id)) saveLiveTask().catch(error => setDraftStatus(`Could not save: ${error.message}`));
+  });
   document.addEventListener('keydown', handleKeyboardShortcut);
 
   // Live Shamsi → Miladi conversion
@@ -514,10 +532,13 @@ async function openModal(task = null, presetColumn = 'todo') {
   draftDirty = false;
   clearTimeout(draftTimer);
   document.getElementById('modalTitle').textContent = task ? 'Edit Task' : 'New Task';
+  document.querySelector('#taskForm button[type="submit"]').textContent = task ? 'Save description' : 'Create task';
   document.getElementById('taskId').value = task?.id || '';
   document.getElementById('taskTitle').value = task?.title || '';
   document.getElementById('taskDescription').value = task?.description || '';
   document.getElementById('taskStatus').value = normalizeStatus(task?.status);
+  document.getElementById('taskStatusDetail').value = '';
+  updateStatusDetail();
   document.getElementById('taskPriority').value = task?.priority || 'medium';
   document.getElementById('taskCategory').value = task?.category_id || '';
   document.getElementById('deleteTaskBtn').classList.toggle('hidden', !task);
@@ -559,7 +580,7 @@ async function openModal(task = null, presetColumn = 'todo') {
     const draft = await window.api.tasks.getDraft(task.id);
     if (editingTaskId !== task.id) return;
     if (draft?.data) {
-      populateForm(draft.data);
+      document.getElementById('taskDescription').value = draft.data.description ?? task.description ?? '';
       document.getElementById('revertDraftBtn').classList.remove('hidden');
       setDraftStatus(`Draft from ${formatTimestamp(draft.updated_at)}`);
     }
@@ -569,6 +590,12 @@ async function openModal(task = null, presetColumn = 'todo') {
 }
 
 async function closeModal() {
+  try {
+    await saveLiveTask();
+  } catch (error) {
+    setDraftStatus(`Could not save: ${error.message}`);
+    return;
+  }
   if (draftDirty && editingTaskId) await persistDraft(false);
   clearTimeout(draftTimer);
   document.getElementById('modalOverlay').classList.add('hidden');
@@ -580,6 +607,8 @@ function populateForm(data) {
   document.getElementById('taskTitle').value = data.title || '';
   document.getElementById('taskDescription').value = data.description || '';
   document.getElementById('taskStatus').value = normalizeStatus(data.status);
+  document.getElementById('taskStatusDetail').value = data.status_detail || '';
+  updateStatusDetail();
   document.getElementById('taskPriority').value = data.priority || 'medium';
   document.getElementById('taskCategory').value = data.category_id || '';
   document.getElementById('taskShamsi').value = data.shamsi_date || '';
@@ -611,6 +640,7 @@ function collectFormData() {
     category_id: document.getElementById('taskCategory').value || null,
     custom_fields: customFields,
     status: document.getElementById('taskStatus').value || 'pending',
+    status_detail: document.getElementById('taskStatusDetailBox').classList.contains('hidden') ? '' : document.getElementById('taskStatusDetail').value.trim(),
     column_status: editingBaseTask?.column_status || newTaskColumn,
     priority: document.getElementById('taskPriority').value || 'medium',
   };
@@ -639,12 +669,40 @@ function formatShamsiInput() {
   }
 }
 
+async function saveLiveTask() {
+  if (!editingTaskId) return Promise.resolve();
+  const id = editingTaskId;
+  const { description, ...data } = collectFormData();
+  if (!data.title) {
+    setDraftStatus('Title cannot be empty.');
+    return Promise.resolve();
+  }
+  liveSavePromise = liveSavePromise.catch(() => {}).then(async () => {
+    if (editingTaskId !== id) return;
+    const updates = Object.fromEntries(Object.entries(data).filter(([key, value]) =>
+      key !== 'id' && key !== 'status_detail' && JSON.stringify(value) !== JSON.stringify(editingBaseTask[key])));
+    if (data.status_detail && (updates.status || data.status_detail !== editingBaseTask.status_detail)) {
+      updates.status_detail = data.status_detail;
+      updates.status = data.status;
+    }
+    if (!Object.keys(updates).length) return;
+    const saved = await window.api.tasks.update(id, updates);
+    if (editingTaskId !== id) return;
+    editingBaseTask = { ...saved, status_detail: data.status_detail };
+    await loadTasks();
+    renderBoard();
+    await loadComments(id);
+  });
+  return liveSavePromise;
+}
+
 async function handleSubmit(e) {
   e.preventDefault();
   const data = collectFormData();
   if (!data.title) return;
   clearTimeout(draftTimer);
-  await saveTask({ ...data, id: editingTaskId });
+  await liveSavePromise;
+  await saveTask({ ...data, status_detail: editingTaskId && data.status_detail === editingBaseTask?.status_detail ? '' : data.status_detail, id: editingTaskId });
   if (editingTaskId) await window.api.tasks.deleteDraft(editingTaskId);
   draftDirty = false;
   closeModal();
@@ -653,7 +711,7 @@ async function handleSubmit(e) {
 }
 
 function scheduleDraftSave(event) {
-  if (event?.target?.id === 'commentBody') return;
+  if (event && event.target.id !== 'taskDescription') return;
   if (!editingTaskId) return;
   draftDirty = true;
   setDraftStatus('Saving draft…');
@@ -892,7 +950,7 @@ async function mutateCategories(action) {
 async function persistDraft(showConfirmation = false) {
   if (!editingTaskId) return;
   clearTimeout(draftTimer);
-  await window.api.tasks.saveDraft(editingTaskId, collectFormData());
+  await window.api.tasks.saveDraft(editingTaskId, { description: document.getElementById('taskDescription').value });
   draftDirty = false;
   document.getElementById('revertDraftBtn').classList.remove('hidden');
   setDraftStatus(showConfirmation ? 'Draft saved' : 'Draft autosaved');
@@ -902,7 +960,8 @@ async function revertDraft() {
   if (!editingTaskId || !editingBaseTask) return;
   clearTimeout(draftTimer);
   await window.api.tasks.deleteDraft(editingTaskId);
-  populateForm(editingBaseTask);
+  document.getElementById('taskDescription').value = editingBaseTask.description || '';
+  setPreviewMode(Boolean(editingBaseTask.description?.trim()));
   draftDirty = false;
   document.getElementById('revertDraftBtn').classList.add('hidden');
   setDraftStatus('Draft reverted');
@@ -1003,10 +1062,9 @@ function addCustomField(key = '', val = '', saved = false) {
   });
   row.querySelector('.remove-field').addEventListener('click', () => {
     row.remove();
-    scheduleDraftSave();
+    saveLiveTask().catch(error => setDraftStatus(`Could not save: ${error.message}`));
   });
   container.appendChild(row);
-  if (!key && editingTaskId) scheduleDraftSave();
 }
 
 // ─── Markdown Toolbar ───────────────────────────────

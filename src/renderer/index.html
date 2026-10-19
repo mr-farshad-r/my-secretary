@@ -158,9 +158,14 @@
             <select id="taskStatus">
               <option value="wip">WIP</option>
               <option value="pending">Pending</option>
+              <option value="code_review">Code Review</option>
               <option value="done">Done</option>
               <option value="canceled">Canceled</option>
             </select>
+            <div id="taskStatusDetailBox" class="hidden">
+              <label id="taskStatusDetailLabel" for="taskStatusDetail">Reason (optional)</label>
+              <input type="text" id="taskStatusDetail" dir="auto">
+            </div>
           </div>
           <div>
             <label for="taskPriority">Priority</label>
@@ -228,8 +233,8 @@
           <div class="spacer"></div>
           <button type="button" id="revertDraftBtn" class="btn btn-ghost hidden">Revert draft</button>
           <button type="button" id="saveDraftBtn" class="btn btn-secondary hidden">Save draft</button>
-          <button type="button" id="cancelBtn" class="btn btn-ghost">Cancel</button>
-          <button type="submit" class="btn btn-primary" title="Save (Cmd/Ctrl+Enter)">Save changes</button>
+          <button type="button" id="cancelBtn" class="btn btn-ghost">Close</button>
+          <button type="submit" class="btn btn-primary" title="Save (Cmd/Ctrl+Enter)">Save description</button>
         </div>
       </form>
     </div>

@@ -12,6 +12,51 @@ app.whenReady().then(async () => {
     const result = await window.webContents.executeJavaScript(`(async () => {
       const assert = (condition, message) => { if (!condition) throw new Error(message); };
       assert(normalizeStatus('done') === 'done' && [...document.getElementById('taskStatus').options].some(option => option.value === 'done'), 'Done status available');
+      assert(normalizeStatus('code_review') === 'code_review' && [...document.getElementById('taskStatus').options].some(option => option.value === 'code_review'), 'Code Review status available');
+      editingBaseTask = { status: 'wip' };
+      for (const status of ['code_review', 'pending', 'canceled']) {
+        document.getElementById('taskStatus').value = status;
+        updateStatusDetail();
+        assert(!document.getElementById('taskStatusDetailBox').classList.contains('hidden'), 'Optional status box opens');
+        assert(document.getElementById('taskStatusDetailLabel').textContent === (status === 'code_review' ? 'Reviewer name (optional)' : 'Reason (optional)'), 'Context label');
+        document.getElementById('taskStatusDetail').value = '  Context  ';
+        const draft = collectFormData();
+        assert(draft.status_detail === 'Context', 'Context included in save and draft');
+        populateForm(draft);
+        assert(document.getElementById('taskStatusDetail').value === 'Context', 'Context restored from draft');
+      }
+      document.getElementById('taskStatus').value = 'wip';
+      updateStatusDetail();
+      assert(document.getElementById('taskStatusDetailBox').classList.contains('hidden') && collectFormData().status_detail === '', 'Unchanged status hides and excludes context');
+      editingBaseTask = null;
+      const liveApi = window.api;
+      const originalLoadTasks = loadTasks, originalRenderBoard = renderBoard, originalLoadComments = loadComments;
+      const updates = [], drafts = [];
+      loadTasks = async () => {}; renderBoard = () => {}; loadComments = async () => {};
+      editingTaskId = 'live-task';
+      editingBaseTask = { ...collectFormData(), id: editingTaskId, description: 'Published description' };
+      window.api = { tasks: {
+        update: async (id, data) => { updates.push(data); return { ...editingBaseTask, ...data }; },
+        saveDraft: async (id, data) => { drafts.push(data); },
+        deleteDraft: async () => {},
+      } };
+      document.getElementById('taskTitle').value = 'Changed title';
+      document.getElementById('taskDescription').value = 'Draft description';
+      await saveLiveTask();
+      assert(updates[0].title === 'Changed title' && !('description' in updates[0]), 'Metadata saves without publishing description');
+      await persistDraft();
+      assert(JSON.stringify(drafts[0]) === JSON.stringify({ description: 'Draft description' }), 'Only description is drafted');
+      document.getElementById('taskStatus').value = 'code_review'; updateStatusDetail();
+      await saveLiveTask();
+      document.getElementById('taskStatusDetail').value = 'Sara';
+      await saveLiveTask();
+      assert(updates[1].status === 'code_review' && updates[2].status_detail === 'Sara', 'Status and reviewer save live');
+      await saveLiveTask();
+      assert(updates.length === 3, 'Unchanged fields are not saved again');
+      await revertDraft();
+      assert(document.getElementById('taskDescription').value === 'Published description' && document.getElementById('taskTitle').value === 'Changed title' && document.getElementById('taskStatus').value === 'code_review', 'Revert changes only description');
+      editingTaskId = null; editingBaseTask = null;
+      window.api = liveApi; loadTasks = originalLoadTasks; renderBoard = originalRenderBoard; loadComments = originalLoadComments;
       const tick = String.fromCharCode(96);
       const codeMarkdown = [tick.repeat(3) + 'javascript', 'const count = 42;', tick.repeat(3), '', 'Inline ' + tick + 'const count = 42' + tick].join(String.fromCharCode(10));
       const codeOutput = document.createElement('div'); codeOutput.innerHTML = renderNoteMarkdown(codeMarkdown);

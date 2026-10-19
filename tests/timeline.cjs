@@ -28,6 +28,28 @@ app.whenReady().then(() => {
     assert.equal(db.getComments(task.id).length, 4);
     db.initDb();
     assert.equal(db.getTask(task.id).status, 'done');
+    db.updateTask(task.id, { status: 'code_review', status_detail: '  Sara <reviewer>  ' });
+    assert(db.getComments(task.id).some(item => item.body === 'Changed status from done to Code Review — Reviewer: Sara <reviewer>'));
+    db.updateTask(task.id, { status: 'code_review', status_detail: 'Ali' });
+    assert(db.getComments(task.id).some(item => item.body === 'Reviewer: Ali'));
+    db.initDb();
+    assert.equal(db.getTask(task.id).status, 'code_review');
+    const reviewBackup = db.exportAllData();
+    db.importAllData(reviewBackup);
+    assert.equal(db.getTask(task.id).status, 'code_review');
+    assert(db.getComments(task.id).some(item => item.body.includes('Reviewer: Sara <reviewer>')));
+    for (const status of ['pending', 'canceled']) {
+      db.updateTask(task.id, { status, status_detail: 'Waiting for approval' });
+      assert(db.getComments(task.id).some(item => item.body.includes('to ' + status + ' — Reason: Waiting for approval')));
+    }
+    const count = db.getComments(task.id).length;
+    db.updateTask(task.id, { status: 'canceled' });
+    assert.equal(db.getComments(task.id).length, count);
+    db.updateTask(task.id, { status: 'code_review', status_detail: '   ' });
+    assert(db.getComments(task.id).some(item => item.body === 'Changed status from canceled to Code Review'));
+    const initial = db.createTask({ title: 'Initial review', status: 'code_review', status_detail: 'Sara' });
+    assert(db.getComments(initial.id)[0].body.includes('Reviewer: Sara'));
+    db.deleteTask(initial.id);
     backup.comments.forEach(item => delete item.kind);
     db.importAllData(backup);
     assert(db.getComments(task.id).every(item => item.kind === 'comment'));

@@ -103,7 +103,7 @@ function initDb() {
   // Keep the task badge independent from its Kanban column.
   db.prepare("UPDATE tasks SET status = 'pending' WHERE status = 'todo'").run();
   db.prepare("UPDATE tasks SET status = 'wip' WHERE status = 'inprogress'").run();
-  db.prepare("UPDATE tasks SET status = 'pending' WHERE status NOT IN ('wip', 'pending', 'done', 'canceled')").run();
+  db.prepare("UPDATE tasks SET status = 'pending' WHERE status NOT IN ('wip', 'pending', 'done', 'code_review', 'canceled')").run();
 
   return db;
 }
@@ -137,6 +137,9 @@ function createTask(task) {
     custom_fields: JSON.stringify(task.custom_fields || {}),
     sort_order: task.sort_order || Date.now(),
   });
+  if (['pending', 'code_review', 'canceled'].includes(task.status || 'pending') && typeof task.status_detail === 'string' && task.status_detail.trim()) {
+    addComment(id, `Created with status ${(task.status || 'pending').replace('code_review', 'Code Review')} — ${task.status === 'code_review' ? 'Reviewer' : 'Reason'}: ${task.status_detail.trim()}`, 'event');
+  }
   return getTask(id);
 }
 
@@ -176,10 +179,19 @@ function updateTask(id, updates) {
     const previous = getTask(id);
     database.prepare(`UPDATE tasks SET ${fields.join(', ')} WHERE id = @id`).run(values);
     if (!previous) return;
+    if (updates.status === previous.status && ['pending', 'code_review', 'canceled'].includes(updates.status) && typeof updates.status_detail === 'string' && updates.status_detail.trim()) {
+      addComment(id, `${updates.status === 'code_review' ? 'Reviewer' : 'Reason'}: ${updates.status_detail.trim()}`, 'event');
+    }
     for (const key of ['status', 'column_status', 'description']) {
       if (updates[key] === undefined || updates[key] === previous[key]) continue;
-      const body = key === 'description' ? 'Updated description' :
+      let body = key === 'description' ? 'Updated description' :
         `Changed ${key === 'status' ? 'status' : 'board column'} from ${previous[key]} to ${updates[key]}`;
+      if (key === 'status') {
+        body = body.replaceAll('code_review', 'Code Review');
+        if (['pending', 'code_review', 'canceled'].includes(updates.status) && typeof updates.status_detail === 'string' && updates.status_detail.trim()) {
+          body += ` — ${updates.status === 'code_review' ? 'Reviewer' : 'Reason'}: ${updates.status_detail.trim()}`;
+        }
+      }
       addComment(id, body, 'event');
     }
   })();

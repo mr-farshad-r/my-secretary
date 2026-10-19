@@ -323,6 +323,7 @@ button.calendar-event { cursor: pointer; }
 .task-card-chips { display: flex; flex: 0 0 auto; gap: 4px; align-items: center; }
 .status-chip { flex: 0 0 auto; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 800; letter-spacing: .4px; }
 .status-pending { color: var(--col-pending); background: var(--surface-3); }
+.status-code_review { color: var(--primary); background: var(--surface-3); }
 .status-wip { color: var(--col-wip); background: var(--amber-tint); }
 .status-done { color: var(--col-done); background: var(--green-tint); }
 .status-canceled { color: var(--danger); background: var(--red-tint); }
