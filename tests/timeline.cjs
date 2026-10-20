@@ -16,13 +16,17 @@ app.whenReady().then(() => {
     db.updateTask(task.id, { status: 'done', description: '# Updated', sort_order: 5 });
     assert.equal(db.getComments(task.id).length, 4);
     assert.equal(db.getCommentContributions()[0].count, 4);
+    assert.deepEqual(db.getCommentCounts(), [{ task_id: task.id, count: 1 }], 'Only authored comments are counted for cards');
     const event = db.getComments(task.id).find(item => item.kind === 'event');
     assert.equal(db.deleteComment(task.id, event.id), false);
     assert.equal(db.getCommentContributions()[0].count, 4);
+    assert.deepEqual(db.getCommentCounts(), [{ task_id: task.id, count: 1 }], 'Timeline events never count as comments');
     const comment = db.getComments(task.id).find(item => item.kind === 'comment');
     assert.equal(db.deleteComment(task.id, comment.id), true);
     assert.equal(db.getCommentContributions()[0].count, 3);
+    assert.deepEqual(db.getCommentCounts(), [], 'Deleted comments leave no card count');
     db.addComment(task.id, '**Hello** سلام');
+    assert.deepEqual(db.getCommentCounts(), [{ task_id: task.id, count: 1 }]);
     const backup = db.exportAllData();
     db.importAllData(backup);
     assert.equal(db.getComments(task.id).length, 4);

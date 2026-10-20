@@ -17,6 +17,7 @@ const responses = {
   'tasks:getAll': tasks, 'categories:getAll': [{ id: 'work', name: 'Work' }],
   'calendar:getContributions': [], 'tasks:getDraft': null,
   'comments:getAll': [{ id: 'c1', kind: 'comment', body: '**Ready for review.**\n\nسلام، یادداشت جلسه', shamsi_created_at: '1405/07/20 10:30' }],
+  'comments:getCounts': [{ task_id: '1', count: 2 }, { task_id: '2', count: 1 }],
   'settings:get': { openAtLogin: false },
   'app:checkForUpdate': { currentVersion: '1.11.2', latestVersion: '1.11.2' },
 };
@@ -37,6 +38,8 @@ app.whenReady().then(async () => {
     await pause();
     await run('applyMotionSetting(false)');
     assert.equal(await run("document.querySelectorAll('.task-card').length"), 4);
+    assert.equal(await run("document.querySelector('.task-card[data-id=\"1\"] .comment-count-badge').textContent.trim()"), '2');
+    assert.equal(await run("document.querySelector('.task-card[data-id=\"3\"] .comment-count-badge')"), null);
     assert.equal(await run("getComputedStyle(document.body).backgroundColor"), 'rgb(246, 245, 244)');
     assert.equal(await run("getComputedStyle(document.querySelector('.task-card')).backgroundColor"), 'rgb(255, 255, 255)');
     async function checkLayout(view) {

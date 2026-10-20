@@ -260,6 +260,15 @@ function deleteComment(taskId, commentId) {
   return result.changes > 0;
 }
 
+function getCommentCounts() {
+  return getDb().prepare(`
+    SELECT task_id, COUNT(*) AS count
+    FROM task_comments
+    WHERE kind = 'comment'
+    GROUP BY task_id
+  `).all();
+}
+
 function getCommentContributions() {
   return getDb().prepare(`
     SELECT date(created_at, 'localtime') AS date, COUNT(*) AS count
@@ -374,6 +383,7 @@ module.exports = {
   addComment,
   deleteComment,
   getCommentContributions,
+  getCommentCounts,
   getAllCategories,
   createCategory,
   updateCategory,

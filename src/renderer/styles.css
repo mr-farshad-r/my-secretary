@@ -357,6 +357,8 @@ button.calendar-event { cursor: pointer; }
 .task-card-footer {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: auto;
   min-width: 0;
 }
@@ -373,6 +375,21 @@ button.calendar-event { cursor: pointer; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.task-card-footer .comment-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.task-card-footer .comment-count-badge svg { width: 11px; height: 11px; }
 
 .add-to-column {
   margin: 8px 4px 12px;

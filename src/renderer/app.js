@@ -16,6 +16,7 @@ const ICS_URL_KEY = 'my-secretary:ics-url';
 let calendarMonth = null;
 let icsEvents = [];
 let commentContributions = {};
+let commentCounts = {};
 const notifiedEvents = new Set();
 
 const STATUS_COLUMNS = ['todo', 'wip', 'done'];
@@ -107,7 +108,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ─── Data ───────────────────────────────────────────
 async function loadTasks() {
   tasks = await window.api.tasks.getAll();
-  await loadContributions();
+  await Promise.all([loadContributions(), loadCommentCounts()]);
 }
 
 async function loadCategories() {
@@ -117,6 +118,11 @@ async function loadCategories() {
 async function loadContributions() {
   const counts = await window.api.calendar.getContributions();
   commentContributions = Object.fromEntries(counts.map(item => [item.date, item.count]));
+}
+
+async function loadCommentCounts() {
+  const counts = await window.api.comments.getCounts();
+  commentCounts = Object.fromEntries(counts.map(item => [item.task_id, item.count]));
 }
 
 async function saveTask(data) {
@@ -318,11 +324,21 @@ function createTaskCard(task) {
     ? Object.values(task.custom_fields).filter(value => value !== null && value !== undefined && String(value).trim() !== '').length
     : 0;
   const category = categories.find(item => item.id === task.category_id);
+  const commentCount = commentCounts[task.id] || 0;
+
+  const footerChips = [];
+  if (commentCount) {
+    const commentLabel = `${commentCount} ${commentCount === 1 ? 'comment' : 'comments'}`;
+    footerChips.push(`<span class="comment-count-badge" title="${commentLabel}" aria-label="${commentLabel}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6 3V6a2 2 0 0 1 2-2Z"/></svg>${commentCount}</span>`);
+  }
+  if (customFieldCount) {
+    footerChips.push(`<span class="field-count-badge" title="${customFieldCount} custom ${customFieldCount === 1 ? 'field' : 'fields'}">${customFieldCount} custom ${customFieldCount === 1 ? 'field' : 'fields'}</span>`);
+  }
 
   card.innerHTML = `
     <div class="task-card-heading"><div class="task-card-title">${escapeHtml(task.title)}</div><div class="task-card-chips"><span class="priority-chip priority-${escapeHtml(task.priority || 'medium')}">${escapeHtml((task.priority || 'medium').toUpperCase())}</span><span class="status-chip status-${escapeHtml(task.status)}">${escapeHtml(STATUS_LABELS[task.status] || task.status)}</span></div></div>
     ${(dateChips.length || category) ? `<div class="task-card-meta">${category ? `<span class="category-chip">${escapeHtml(category.name)}</span>` : ''}${dateChips.join('')}</div>` : ''}
-    ${customFieldCount ? `<div class="task-card-footer"><span class="field-count-badge" title="${customFieldCount} custom ${customFieldCount === 1 ? 'field' : 'fields'}">${customFieldCount} custom ${customFieldCount === 1 ? 'field' : 'fields'}</span></div>` : ''}
+    ${footerChips.length ? `<div class="task-card-footer">${footerChips.join('')}</div>` : ''}
   `;
 
   card.addEventListener('click', () => openModal(task));
@@ -759,8 +775,8 @@ async function addComment() {
   try {
     await window.api.comments.add(editingTaskId, body);
     input.value = '';
-    await Promise.all([loadComments(editingTaskId), loadContributions()]);
-    renderCalendar();
+    await Promise.all([loadComments(editingTaskId), loadContributions(), loadCommentCounts()]);
+    renderBoard();
   } finally {
     button.disabled = false;
   }
@@ -770,8 +786,8 @@ async function deleteComment(commentId) {
   if (!editingTaskId || !commentId) return;
   if (!confirm('Delete this comment?')) return;
   await window.api.comments.delete(editingTaskId, commentId);
-  await Promise.all([loadComments(editingTaskId), loadContributions()]);
-  renderCalendar();
+  await Promise.all([loadComments(editingTaskId), loadContributions(), loadCommentCounts()]);
+  renderBoard();
 }
 
 async function openSettings() {

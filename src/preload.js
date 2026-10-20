@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('api', {
     getAll: (taskId) => ipcRenderer.invoke('comments:getAll', taskId),
     add: (taskId, body) => ipcRenderer.invoke('comments:add', taskId, body),
     delete: (taskId, commentId) => ipcRenderer.invoke('comments:delete', taskId, commentId),
+    getCounts: () => ipcRenderer.invoke('comments:getCounts'),
   },
   categories: {
     getAll: () => ipcRenderer.invoke('categories:getAll'),
