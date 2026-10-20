@@ -1,6 +1,6 @@
 {
   "name": "my-secretary",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Self-hosted task manager with Kanban UI",
   "main": "src/main.js",
   "scripts": {
@@ -26,13 +26,17 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "icon": "build/icon.icns",
       "hardenedRuntime": false,
       "gatekeeperAssess": false
     },
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "icon": "build/icon.png"
     },
     "nsis": {
@@ -42,12 +46,23 @@
     "dmg": {
       "title": "My Secretary",
       "contents": [
-        { "x": 130, "y": 220 },
-        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     },
     "linux": {
-      "target": ["AppImage", "tar.gz"],
+      "target": [
+        "AppImage",
+        "tar.gz"
+      ],
       "icon": "build/icon.png",
       "category": "Office",
       "artifactName": "${name}-${version}-linux-${arch}.${ext}"
